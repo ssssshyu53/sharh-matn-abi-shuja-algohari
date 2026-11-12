@@ -1,0 +1,422 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<title>الشَّرْحُ الْكَامِلُ عَلَى مَتْنِ أَبِي شُجَاعٍ — عَلَى نَسَقِ فَتْحِ الْقَرِيبِ الْمُجِيبِ</title>
+<style>
+@font-face {
+  font-family: 'AmiriBook';
+  src: url('file:///home/antigravity/.local/share/fonts/amiri/Amiri-Regular.ttf') format('truetype');
+  font-weight: 400; font-style: normal;
+}
+@font-face {
+  font-family: 'AmiriBook';
+  src: url('file:///home/antigravity/.local/share/fonts/amiri/Amiri-Bold.ttf') format('truetype');
+  font-weight: 700; font-style: normal;
+}
+@font-face {
+  font-family: 'AmiriBook';
+  src: url('file:///home/antigravity/.local/share/fonts/amiri/Amiri-Italic.ttf') format('truetype');
+  font-weight: 400; font-style: italic;
+}
+@font-face {
+  font-family: 'AmiriQuranFont';
+  src: url('file:///home/antigravity/.local/share/fonts/amiri/AmiriQuran.ttf') format('truetype');
+  font-weight: 400; font-style: normal;
+}
+
+@page {
+  size: 162mm 234mm;
+  margin: 0;
+}
+
+* { box-sizing: border-box; }
+html, body {
+  margin: 0;
+  padding: 0;
+  font-family: 'AmiriBook', serif;
+  color: #111;
+  background: #fff;
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+  font-feature-settings: "kern" 1, "liga" 1, "mark" 1, "mkmk" 1;
+}
+
+.page {
+  width: 162mm;
+  height: 234mm;
+  padding: 13mm 19mm 17mm 19mm;
+  position: relative;
+  overflow: hidden;
+  page-break-after: always;
+  break-after: page;
+  display: flex;
+  flex-direction: column;
+  background: #fff;
+}
+.page:last-child {
+  page-break-after: auto;
+  break-after: auto;
+}
+
+.page.framed-page {
+  padding: 12.5mm 14mm;
+}
+
+/* Title & Edition double frames matching p-001 / p-002 / p-004 */
+.frame-outer {
+  width: 100%;
+  height: 100%;
+  border: 2.2pt solid #111;
+  padding: 2.5pt;
+}
+.frame-inner {
+  width: 100%;
+  height: 100%;
+  border: 0.75pt solid #111;
+  padding: 14mm 10mm 11mm 10mm;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  align-items: center;
+  text-align: center;
+}
+
+.disclaimer-box {
+  border: 1pt solid #111;
+  padding: 6mm 10mm;
+  margin: 4mm auto;
+  width: 86%;
+  font-size: 12.5pt;
+  font-weight: 700;
+  line-height: 1.9;
+}
+
+/* Running header matching Dar Ibn Hazm p-005..p-368 */
+.running-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  border-bottom: 0.65pt solid #111;
+  padding-bottom: 3pt;
+  margin-bottom: 6pt;
+  font-size: 10.5pt;
+  line-height: 1.3;
+  flex-shrink: 0;
+}
+.running-header .rh-side {
+  width: 18mm;
+  font-weight: 400;
+}
+.running-header .rh-right { text-align: right; }
+.running-header .rh-left { text-align: left; }
+.running-header .rh-center {
+  flex: 1;
+  text-align: center;
+  font-weight: 400;
+}
+
+/* Core body frame containing Upper Matn + Rule + Lower Sharh + Footnotes */
+.body-frame {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  min-height: 0;
+  padding-bottom: 2pt;
+}
+
+/* Upper Zone: Matn Abi Shuja */
+.matn-zone {
+  font-size: 13.4pt;
+  line-height: 1.85;
+  flex-shrink: 0;
+}
+.matn-book-title {
+  text-align: center;
+  font-size: 17.5pt;
+  font-weight: 700;
+  line-height: 1.6;
+  margin: 0 0 4pt 0;
+}
+.matn-bracket-title {
+  text-align: center;
+  font-size: 14.5pt;
+  font-weight: 700;
+  line-height: 1.55;
+  margin: 0 0 4pt 0;
+}
+.matn-sub-label {
+  text-align: center;
+  font-size: 12pt;
+  font-weight: 700;
+  line-height: 1.5;
+  margin: 0 0 2.5pt 0;
+  color: #222;
+}
+.matn-p {
+  margin: 0 0 1.5pt 0;
+  text-align: justify;
+  text-align-last: right;
+  text-indent: 1.4em;
+}
+.matn-cont-context {
+  font-size: 11.8pt;
+  line-height: 1.72;
+  text-align: justify;
+  text-align-last: right;
+  color: #111;
+  margin: 0;
+}
+.matn-cont-tag {
+  font-size: 10.5pt;
+  font-weight: 700;
+  color: #222;
+  margin-left: 4pt;
+}
+
+/* Ornamental 8-petal floral stars matching p-024 / p-028 / p-030 */
+.stars-row {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 24pt;
+  margin: 4pt 0;
+  flex-shrink: 0;
+}
+.star-svg {
+  width: 8pt;
+  height: 8pt;
+  display: inline-block;
+}
+
+/* Middle full-width rule separating Matn above from Sharh below */
+.split-rule {
+  border: none;
+  border-top: 0.75pt solid #111;
+  margin: 4pt 0 5.5pt 0;
+  flex-shrink: 0;
+}
+
+/* Lower Zone: Commentary */
+.sharh-zone {
+  font-size: 11.4pt;
+  line-height: 1.78;
+  flex: 1;
+  overflow: hidden;
+  min-height: 0;
+}
+.sharh-center-title {
+  text-align: center;
+  font-size: 13.5pt;
+  font-weight: 700;
+  line-height: 1.6;
+  margin: 1pt 0 4pt 0;
+}
+.sharh-sub-title {
+  text-align: center;
+  font-size: 12pt;
+  font-weight: 700;
+  line-height: 1.55;
+  margin: 1pt 0 3.5pt 0;
+}
+.sharh-p {
+  margin: 0 0 1.5pt 0;
+  text-align: justify;
+  text-align-last: right;
+  text-indent: 1.4em;
+}
+.sharh-p.cont {
+  text-indent: 0;
+}
+.sharh-p.split-tail {
+  text-align-last: justify;
+}
+.sharh-p strong, .sharh-zone strong {
+  font-weight: 700;
+}
+.ayah {
+  font-family: 'AmiriQuranFont', 'AmiriBook', serif;
+  font-size: 11.5pt;
+  line-height: 1.78;
+}
+
+/* Footnotes matching p-021 / p-024 / p-027 */
+.footnote-area {
+  margin-top: auto;
+  padding-top: 5pt;
+  flex-shrink: 0;
+}
+.footnote-rule {
+  width: 34mm;
+  border-top: 0.55pt solid #111;
+  margin-bottom: 2.5pt;
+}
+.footnote-text {
+  font-size: 8.8pt;
+  line-height: 1.55;
+  color: #111;
+}
+
+/* Basmalah Calligraphic Ornament */
+.basmalah-block {
+  text-align: center;
+  margin: 1mm 0 2mm 0;
+}
+.basmalah-text {
+  font-family: 'AmiriQuranFont', 'AmiriBook', serif;
+  font-size: 20pt;
+  line-height: 1.65;
+  display: inline-block;
+  padding: 1pt 14pt;
+}
+
+/* Front matter & Back matter styles */
+.front-h {
+  text-align: center;
+  font-size: 14.5pt;
+  font-weight: 700;
+  line-height: 1.6;
+  margin: 2pt 0 3.5pt 0;
+}
+.front-sub {
+  font-size: 12pt;
+  font-weight: 700;
+  margin: 4pt 0 2pt 0;
+}
+.front-p {
+  font-size: 11pt;
+  line-height: 1.66;
+  text-align: justify;
+  text-align-last: right;
+  text-indent: 1.4em;
+  margin: 0 0 1.5pt 0;
+}
+
+/* Classic academic tables for Lesson schedule & Quran index */
+.classic-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 9.8pt;
+  line-height: 1.55;
+  margin-top: 4pt;
+}
+.classic-table th {
+  border-top: 1pt solid #111;
+  border-bottom: 0.8pt solid #111;
+  padding: 3pt 4pt;
+  font-weight: 700;
+  text-align: right;
+}
+.classic-table td {
+  border-bottom: 0.35pt solid #888;
+  padding: 2.5pt 4pt;
+  vertical-align: top;
+}
+.classic-table td a, .toc-row a, .toc-book-row a, .ayah-idx-pages a {
+  color: #111;
+  text-decoration: none;
+}
+
+/* Two-Column General Index (الفهرس العام) exact replica of p-366..p-368 */
+.toc-page-title {
+  text-align: center;
+  font-size: 17pt;
+  font-weight: 700;
+  margin: 2pt 0 7pt 0;
+}
+.toc-two-col {
+  display: flex;
+  flex-direction: row;
+  gap: 0;
+  flex: 1;
+  align-items: stretch;
+  min-height: 0;
+}
+.toc-col {
+  width: 50%;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+.toc-col-right {
+  padding-left: 5.5mm;
+  border-left: 0.6pt solid #111;
+}
+.toc-col-left {
+  padding-right: 5.5mm;
+}
+.toc-book-row {
+  font-size: 10.6pt;
+  font-weight: 700;
+  margin: 4pt 0 1.5pt 0;
+  line-height: 1.55;
+  display: flex;
+  align-items: baseline;
+}
+.toc-book-label {
+  padding-right: 10pt;
+  white-space: nowrap;
+}
+.toc-row {
+  display: flex;
+  align-items: baseline;
+  font-size: 9.8pt;
+  line-height: 1.62;
+  margin: 0.5pt 0;
+}
+.toc-row-title {
+  white-space: normal;
+  max-width: 82%;
+}
+.toc-dots {
+  flex: 1;
+  border-bottom: 1pt dotted #333;
+  margin: 0 3pt 3pt 3pt;
+  min-width: 8pt;
+}
+.toc-pg {
+  font-size: 9.8pt;
+  white-space: nowrap;
+}
+.toc-section-center {
+  text-align: center;
+  font-size: 11pt;
+  font-weight: 700;
+  margin: 5pt 0 2pt 0;
+}
+.index-col-head {
+  display: flex;
+  justify-content: space-between;
+  font-size: 10.2pt;
+  font-weight: 700;
+  border-bottom: 0.6pt solid #111;
+  padding-bottom: 2pt;
+  margin-bottom: 4pt;
+}
+.ayah-idx-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  border-bottom: 0.3pt solid #ccc;
+  padding: 2.5pt 0;
+  font-size: 10pt;
+  line-height: 1.6;
+}
+.ayah-idx-text {
+  font-family: 'AmiriQuranFont', 'AmiriBook', serif;
+  flex: 1;
+  padding-left: 6pt;
+}
+.ayah-idx-pages {
+  white-space: nowrap;
+  font-size: 9.8pt;
+  min-width: 14mm;
+  text-align: left;
+}
+</style>
+</head>
+<body>
+<div id="book-root"></div>
+</body>
+</html>
