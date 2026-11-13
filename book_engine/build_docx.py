@@ -725,7 +725,7 @@ def build_docx(edition: str):
     # ==================== SECTION 2: pg-5 .. body_end_pg BODY PAGES ====================
     sec2 = doc.add_section(WD_SECTION.NEW_PAGE)
     shrink_section_break_para(sec1)
-    configure_page_size(sec2, top_mm=21.2, bottom_mm=16.0, left_mm=18.5, right_mm=18.5, hdr_mm=13.0, ftr_mm=8.0)
+    configure_page_size(sec2, top_mm=21.2, bottom_mm=11.5, left_mm=18.5, right_mm=18.5, hdr_mm=13.0, ftr_mm=8.0)
     set_section_page_start(sec2, 5)
     configure_running_header(sec2.header, "لِفَضِيلَةِ الشَّيْخِ أَحْمَدَ الْجَوْهَرِيِّ", "left", 5, pal)
     configure_running_header(sec2.even_page_header, "« تَيْسِيرُ الانْتِفَاعِ بِشَرْحِ مُخْتَصَرِ أَبِي شُجَاعٍ »", "right", 6, pal)
@@ -877,7 +877,7 @@ def build_docx(edition: str):
     if ayah_start_pg:
         sec3 = doc.add_section(WD_SECTION.NEW_PAGE)
         shrink_section_break_para(sec2)
-        configure_page_size(sec3, top_mm=21.2, bottom_mm=16.0, left_mm=18.5, right_mm=18.5, hdr_mm=13.0, ftr_mm=8.0)
+        configure_page_size(sec3, top_mm=21.2, bottom_mm=11.5, left_mm=18.5, right_mm=18.5, hdr_mm=13.0, ftr_mm=8.0)
         set_section_page_start(sec3, ayah_start_pg)
         configure_running_header(sec3.header, "فَهْرَسُ الآيَاتِ الْقُرْآنِيَّةِ", "left", ayah_start_pg, pal)
         configure_running_header(sec3.even_page_header, "فَهْرَسُ الآيَاتِ الْقُرْآنِيَّةِ", "right", ayah_start_pg, pal)
@@ -940,7 +940,7 @@ def build_docx(edition: str):
     if toc_start_pg:
         sec4 = doc.add_section(WD_SECTION.NEW_PAGE)
         shrink_section_break_para(sec3 if ayah_start_pg else sec2)
-        configure_page_size(sec4, top_mm=21.2, bottom_mm=16.0, left_mm=18.5, right_mm=18.5, hdr_mm=13.0, ftr_mm=8.0)
+        configure_page_size(sec4, top_mm=21.2, bottom_mm=11.5, left_mm=18.5, right_mm=18.5, hdr_mm=13.0, ftr_mm=8.0)
         set_section_page_start(sec4, toc_start_pg)
         configure_running_header(sec4.header, "اَلْفَهْرَسُ الْعَامُّ", "left", toc_start_pg, pal)
         configure_running_header(sec4.even_page_header, "اَلْفَهْرَسُ الْعَامُّ", "right", toc_start_pg, pal)

@@ -99,6 +99,12 @@ class CDPClient {
 
 const PAGINATE_FN_SRC = `
 window.renderFullBook = async function(data, edition) {
+  await Promise.all([
+    document.fonts.load('400 12pt AmiriBook'),
+    document.fonts.load('700 12pt AmiriBook'),
+    document.fonts.load('italic 400 12pt AmiriBook'),
+    document.fonts.load('400 12pt AmiriQuranFont'),
+  ]);
   await document.fonts.ready;
   if (edition === 'two-color') {
     document.body.classList.add('edition-two-color');
@@ -374,15 +380,16 @@ window.renderFullBook = async function(data, edition) {
     return p;
   }
 
-  // Reserve 6px safety buffer via lastElementChild bounding box for Word .docx font metrics parity
+  // Reserve 2px safety buffer via lastElementChild bounding box for Word .docx font metrics parity.
+  // Allow +1/+2px subpixel rounding tolerance on scrollHeight vs clientHeight for fractional footnote/flex boxes.
   function fitsPage(p) {
     if (p.sharhZone.clientHeight < 24) return false;
-    if (p.sharhZone.scrollHeight > p.sharhZone.clientHeight) return false;
-    if (p.bodyFrame.scrollHeight > p.bodyFrame.clientHeight) return false;
+    if (p.sharhZone.scrollHeight > p.sharhZone.clientHeight + 1) return false;
+    if (p.bodyFrame.scrollHeight > p.bodyFrame.clientHeight + 2) return false;
     const lastEl = p.sharhZone.lastElementChild;
     if (lastEl) {
       const sBottom = p.sharhZone.getBoundingClientRect().bottom;
-      if (lastEl.getBoundingClientRect().bottom > sBottom - 6) return false;
+      if (lastEl.getBoundingClientRect().bottom > sBottom - 2) return false;
     }
     return true;
   }
@@ -544,7 +551,7 @@ window.renderFullBook = async function(data, edition) {
           }
 
           const priorParaCount = curPageObj.sharhZone.querySelectorAll('p.sharh-p').length - 1;
-          if (best <= 0 || (priorParaCount > 0 && best < 14)) {
+          if (best <= 0 || (priorParaCount > 0 && best < 3)) {
             if (!curPageObj.isContPage || priorParaCount > 0) {
               curPageObj.sharhZone.removeChild(pEl);
               curPageObj = openOverflowPage(u);
@@ -602,8 +609,8 @@ window.renderFullBook = async function(data, edition) {
                       '<span class="ayah-idx-pages">' + pgLinks + '</span>';
       ayBox.appendChild(row);
       const lastAy = ayBox.lastElementChild;
-      const ayOverflow = ayPage.bodyFrame.scrollHeight > ayPage.bodyFrame.clientHeight ||
-        (lastAy && lastAy.getBoundingClientRect().bottom > ayPage.bodyFrame.getBoundingClientRect().bottom - 6);
+      const ayOverflow = ayPage.bodyFrame.scrollHeight > ayPage.bodyFrame.clientHeight + 2 ||
+        (lastAy && lastAy.getBoundingClientRect().bottom > ayPage.bodyFrame.getBoundingClientRect().bottom - 2);
       if (ayOverflow && ayBox.children.length > 1) {
         ayBox.removeChild(row);
         ayPage = createPage({ centerTitle: 'فَهْرَسُ الآيَاتِ الْقُرْآنِيَّةِ' });
@@ -642,8 +649,8 @@ window.renderFullBook = async function(data, edition) {
     const colRight = pObj.bodyFrame.querySelector('.toc-col-right');
     const colLeft = pObj.bodyFrame.querySelector('.toc-col-left');
     const colOverflows = (col) => {
-      if (pObj.bodyFrame.scrollHeight > pObj.bodyFrame.clientHeight) return true;
-      const bfBottom = pObj.bodyFrame.getBoundingClientRect().bottom - 6;
+      if (pObj.bodyFrame.scrollHeight > pObj.bodyFrame.clientHeight + 2) return true;
+      const bfBottom = pObj.bodyFrame.getBoundingClientRect().bottom - 2;
       const last = col.lastElementChild;
       if (last && last.getBoundingClientRect().bottom > bfBottom) return true;
       return false;

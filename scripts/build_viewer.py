@@ -394,7 +394,7 @@ header.top-bar {{
 .page {{
   width: 162mm;
   height: 234mm;
-  padding: 13mm 19mm 17mm 19mm;
+  padding: 13mm 19mm 12.5mm 19mm;
   position: relative;
   overflow: hidden;
   display: flex;
@@ -537,7 +537,7 @@ header.top-bar {{
   flex-direction: column;
   overflow: hidden;
   min-height: 0;
-  padding-bottom: 2pt;
+  padding-bottom: 0;
 }}
 .matn-zone {{
   font-size: 13.4pt;
