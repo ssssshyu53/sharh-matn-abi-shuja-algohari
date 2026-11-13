@@ -234,7 +234,7 @@ window.renderFullBook = async function(data, edition) {
   // Page 1: Full-Bleed Front Cover Artwork
   {
     const { el } = createPage({ cover: true, skipHeader: true });
-    el.innerHTML = '<img class="cover-img" src="file://' + path.join(__ENG, 'cover_front.png') + '" alt="تيسير الانتفاع بشرح مختصر أبي شجاع">';
+    el.innerHTML = '<img class="cover-img" src="' + (window.__BOOK_COVER_URL || 'file:///home/antigravity/book_engine/cover_front.png') + '" alt="تيسير الانتفاع بشرح مختصر أبي شجاع">';
   }
 
   const isEdited = data.mode === 'edited';
@@ -243,10 +243,10 @@ window.renderFullBook = async function(data, edition) {
   {
     const { bodyFrame } = createPage({ framed: true, skipHeader: true });
     const p2Desc = isEdited
-      ? 'النُّسْخَةُ الْمُحَرَّرَةُ الْمُصَاغَةُ بِالْعَرَبِيَّةِ الْفُصْحَى عَلَى نَسَقِ الْكُتُبِ الْفِقْهِيَّةِ'
+      ? 'تَفْرِيغٌ مُحَرَّرٌ لِمُحَاضَرَاتِ الشَّيْخِ فِي شَرْحِ مَتْنِ أَبِي شُجَاعٍ'
       : 'التَّفْرِيغُ الْحَرْفِيُّ الْكَامِلُ لِدُرُوسِ شَرْحِ مَتْنِ أَبِي شُجَاعٍ';
     const p2Right = isEdited
-      ? 'طَبْعَةٌ مُحَرَّرَةٌ مُهَذَّبَةٌ'
+      ? '٢٥ مُحَاضَرَةً مُحَرَّرَةً'
       : '٢٥ لِقَاءً صَوْتِيًّا كَامِلاً';
     bodyFrame.innerHTML =
       '<div class="frame-outer"><div class="frame-inner">' +
@@ -280,12 +280,12 @@ window.renderFullBook = async function(data, edition) {
     const { bodyFrame } = createPage({ framed: true, skipHeader: true });
     const srcText = data.glossary_source || '«الأَنوَارُ عَلَى غَايَةِ الاِخْتِصَارِ» لِجَامِعِهِ عَبْدِ الرَّحْمَنِ مُحَمَّدٍ نُورِ الدِّينِ';
     const p3Sub = isEdited
-      ? '<span style="font-size: 11.5pt; font-weight: 400;">نُسْخَةٌ مُحَرَّرَةٌ مُهَذَّبَةٌ لِشَرْحِ السِّلْسِلَةِ الْفِقْهِيَّةِ الشَّافِعِيَّةِ</span><br>' +
-        '<span style="font-size: 11pt; font-weight: 400;">( مُحَرَّرَةٌ عَلَى نَسَقِ الْكُتُبِ الْفِقْهِيَّةِ )</span>'
+      ? '<span style="font-size: 11.5pt; font-weight: 400;">تَفْرِيغٌ مُحَرَّرٌ لِمُحَاضَرَاتِ الشَّيْخِ فِي شَرْحِ مَتْنِ أَبِي شُجَاعٍ</span><br>' +
+        '<span style="font-size: 11pt; font-weight: 400;">( الْمُحَاضَرَاتُ : ١ – ٢٥ )</span>'
       : '<span style="font-size: 11.5pt; font-weight: 400;">تَفْرِيغٌ حَرْفِيٌّ كَامِلٌ مُرَاجَعٌ لِدُرُوسِ السِّلْسِلَةِ الْفِقْهِيَّةِ الشَّافِعِيَّةِ</span><br>' +
         '<span style="font-size: 11pt; font-weight: 400;">( اللِّقَاءَاتُ : ١ – ٢٥ )</span>';
     const p3Disc = isEdited
-      ? 'أُعِدَّتْ هَذِهِ النُّسْخَةُ بِتَحْرِيرِ كَلاَمِ الشَّيْخِ الشَّارِحِ بِالْعَرَبِيَّةِ الْفُصْحَى الْمُيَسَّرَةِ، وَتَنْقِيَتِهِ مِنَ الْعَامِّيَّةِ وَفَوَاتِحِ الدُّرُوسِ وَخَوَاتِمِهَا وَأَسْئِلَةِ الْحُضُورِ، مَعَ الأَمَانَةِ التَّامَّةِ فِي حِفْظِ الْمَعَانِي وَالأَحْكَامِ دُونَ تَغْيِيرٍ أَوْ زِيَادَةٍ.'
+      ? 'أُعِدَّ هَذَا الْكِتَابُ بِتَفْرِيغِ مُحَاضَرَاتِ الشَّيْخِ الشَّارِحِ وَتَحْرِيرِهَا بِالْعَرَبِيَّةِ الْفُصْحَى الْمُيَسَّرَةِ، وَتَنْقِيَتِهَا مِنَ الْعَامِّيَّةِ وَفَوَاتِحِ الدُّرُوسِ وَخَوَاتِمِهَا وَأَسْئِلَةِ الْحُضُورِ، مَعَ الأَمَانَةِ التَّامَّةِ فِي حِفْظِ الْمَعَانِي وَالأَحْكَامِ دُونَ تَغْيِيرٍ أَوْ زِيَادَةٍ.'
       : 'أُعِدَّ هَذَا الْكِتَابُ بِإِثْبَاتِ كَلاَمِ الشَّيْخِ الشَّارِحِ كَامِلاً كَمَا أُلْقِيَ دُونَ حَذْفٍ أَوْ اخْتِصَارٍ ،<br>' +
         'مَعَ إِثْبَاتِ مَتْنِ أَبِي شُجَاعٍ مَضْبُوطاً بِالشَّكْلِ أَعْلَى الصَّفْحَةِ مَفْصُولاً بِخَطٍّ أُفُقِيٍّ عَنِ الشَّرْحِ أَسْفَلَهُ';
     const p3Syms = isEdited
@@ -730,6 +730,7 @@ async function main() {
   const runnerScript = `<script>
 window.__BOOK_DATA = ${JSON.stringify(BOOK_DATA)};
 window.__BOOK_EDITION = ${JSON.stringify(EDITION)};
+window.__BOOK_COVER_URL = ${JSON.stringify('file://' + path.join(__ENG, 'cover_front.png'))};
 ${PAGINATE_FN_SRC}
 window.__BOOK_RESULT = null;
 window.__BOOK_ERROR = null;
