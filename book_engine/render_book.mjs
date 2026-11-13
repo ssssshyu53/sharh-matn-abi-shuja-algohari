@@ -1,6 +1,8 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import { spawn, execFileSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
+import { spawn } from 'node:child_process';
+const __ENG = path.dirname(fileURLToPath(import.meta.url));
 
 // Ensure Node fetch/WebSocket to 127.0.0.1 does not route through HTTP_PROXY
 delete process.env.HTTP_PROXY;
@@ -9,18 +11,33 @@ delete process.env.http_proxy;
 delete process.env.https_proxy;
 process.env.NO_PROXY = '127.0.0.1,localhost';
 
-const DATA_PATH = process.argv[2] || '/tmp/book_data.json';
-const OUT_PDF = process.argv[3] || '/tmp/book_preview.pdf';
-const OUT_HTML = process.argv[4] || '/tmp/book_paginated.html';
-const PORT = 9241;
+// Parse args supporting flags like --edition=two-color or --edition two-color
+const positional = [];
+let EDITION = 'classic';
+const argv = process.argv.slice(2);
+for (let i = 0; i < argv.length; i++) {
+  const a = argv[i];
+  if (a.startsWith('--edition=')) {
+    EDITION = a.split('=')[1].trim();
+  } else if (a === '--edition' && i + 1 < argv.length) {
+    EDITION = argv[++i].trim();
+  } else {
+    positional.push(a);
+  }
+}
 
-const TEMPLATE_HTML = fs.readFileSync('/home/antigravity/book_engine/template_book.html', 'utf8');
+const DATA_PATH = positional[0] || path.join(__ENG, 'book_data.json');
+const OUT_PDF = positional[1] || '/tmp/book_preview.pdf';
+const OUT_HTML = positional[2] || '/tmp/book_paginated.html';
+const PORT = EDITION === 'two-color' ? 9243 : 9241;
+
+const TEMPLATE_HTML = fs.readFileSync(path.join(__ENG, 'template_book.html'), 'utf8');
 const BOOK_DATA = JSON.parse(fs.readFileSync(DATA_PATH, 'utf8'));
 
 function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
 
 async function launchChrome() {
-  const userDataDir = `/tmp/chrome_book_prof_${Date.now()}`;
+  const userDataDir = `/tmp/chrome_book_prof_${EDITION}_${Date.now()}`;
   const proc = spawn('chromium', [
     '--headless',
     '--disable-gpu',
@@ -80,10 +97,15 @@ class CDPClient {
   close() { this.ws.close(); }
 }
 
-// Client-side pagination code injected into Chromium DOM
 const PAGINATE_FN_SRC = `
-window.renderFullBook = async function(data) {
+window.renderFullBook = async function(data, edition) {
   await document.fonts.ready;
+  if (edition === 'two-color') {
+    document.body.classList.add('edition-two-color');
+  } else {
+    document.body.classList.remove('edition-two-color');
+  }
+
   const root = document.getElementById('book-root');
   root.innerHTML = '';
 
@@ -91,12 +113,11 @@ window.renderFullBook = async function(data) {
   const toE = (n) => String(n).replace(/[0-9]/g, d => EDIGITS[+d]);
   const esc = (s) => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 
-  const STAR_SVG = '<svg class="star-svg" viewBox="0 0 100 100"><g transform="translate(50,50)"><circle r="9" fill="#111"/>' +
-    [0,45,90,135,180,225,270,315].map(a => '<path d="M0,-12 C6,-28 8,-44 0,-48 C-8,-44 -6,-28 0,-12 Z" fill="#111" transform="rotate('+a+')"/>').join('') +
+  const STAR_SVG = '<svg class="star-svg" viewBox="0 0 100 100"><g transform="translate(50,50)"><circle r="9" fill="currentColor"/>' +
+    [0,45,90,135,180,225,270,315].map(a => '<path d="M0,-12 C6,-28 8,-44 0,-48 C-8,-44 -6,-28 0,-12 Z" fill="currentColor" transform="rotate('+a+')"/>').join('') +
     '</g></svg>';
   const THREE_STARS_HTML = '<div class="stars-row">' + STAR_SVG + STAR_SVG + STAR_SVG + '</div>';
 
-  // Helper: parse HTML paragraph cleanly into token atoms while merging adjacent wrappers cleanly on join
   function tokenizeHtml(htmlStr) {
     const tmp = document.createElement('div');
     tmp.innerHTML = htmlStr;
@@ -158,7 +179,6 @@ window.renderFullBook = async function(data) {
   let pageCounter = 0;
   function makeHeaderHtml(pNum, centerText) {
     const eNum = toE(pNum);
-    // In Dar Ibn Hazm RTL book: Even pages (2, 4, 24..) have page # on TOP-RIGHT; Odd pages (5, 25..) on TOP-LEFT!
     const isEven = (pNum % 2 === 0);
     return '<div class="running-header">' +
       '<span class="rh-side rh-right">' + (isEven ? eNum : '') + '</span>' +
@@ -167,17 +187,24 @@ window.renderFullBook = async function(data) {
     '</div>';
   }
 
-  function getHeaderTitle(pNum, isIntroOrBack) {
+  function getHeaderTitle(pNum) {
     if (pNum % 2 === 0) return '« تَيْسِيرُ الانْتِفَاعِ بِشَرْحِ مُخْتَصَرِ أَبِي شُجَاعٍ »';
     return 'لِفَضِيلَةِ الشَّيْخِ أَحْمَدَ الْجَوْهَرِيِّ';
   }
 
-  function createPage({ framed = false, skipHeader = false, centerTitle = null } = {}) {
+  function createPage({ framed = false, cover = false, skipHeader = false, centerTitle = null } = {}) {
     pageCounter++;
     const pNum = pageCounter;
     const el = document.createElement('div');
-    el.className = 'page' + (framed ? ' framed-page' : '');
+    let cls = 'page';
+    if (framed) cls += ' framed-page';
+    if (cover) cls += ' cover-page';
+    el.className = cls;
     el.id = 'pg-' + pNum;
+    if (cover) {
+      root.appendChild(el);
+      return { el, bodyFrame: null, pNum };
+    }
     if (!skipHeader) {
       el.innerHTML = makeHeaderHtml(pNum, centerTitle || getHeaderTitle(pNum));
     }
@@ -185,72 +212,93 @@ window.renderFullBook = async function(data) {
     bodyFrame.className = 'body-frame';
     el.appendChild(bodyFrame);
     root.appendChild(el);
-    return { el, bodyFrame, pNum };
+    return {
+      el,
+      bodyFrame,
+      pNum,
+      pageFnNum: 0,
+      pageGlossaryIds: new Set(),
+      pageGlossaryTerms: new Set(),
+      lessonNoteText: null,
+      glossaryNotes: [],
+    };
   }
 
   // ==================== 1. FRONT MATTER ====================
-  // Page 1: Title Page
+  // Page 1: Full-Bleed Front Cover Artwork
+  {
+    const { el } = createPage({ cover: true, skipHeader: true });
+    el.innerHTML = '<img class="cover-img" src="file://' + path.join(__ENG, 'cover_front.png') + '" alt="تيسير الانتفاع بشرح مختصر أبي شجاع">';
+  }
+
+  // Page 2: Inside Title Plate
   {
     const { bodyFrame } = createPage({ framed: true, skipHeader: true });
     bodyFrame.innerHTML =
       '<div class="frame-outer"><div class="frame-inner">' +
         '<div style="width:100%;">' +
-          '<div style="font-size: 24pt; font-weight: 700; line-height: 1.85; margin-top: 3mm;">' +
+          '<div class="title-plate-main">' +
             'تَيْسِيرُ الانْتِفَاعِ<br>' +
             '<span style="font-size:17pt; font-weight:400;">بِشَرْحِ</span><br>' +
             '<span style="font-size:25pt;">مُخْتَصَرِ أَبِي شُجَاعٍ</span>' +
           '</div>' +
-          '<div style="font-size: 14pt; margin: 10pt 0 4pt 0;">( الْمُسَمَّى بِـ « غَايَةِ الاِخْتِصَارِ وَالتَّقْرِيبِ » )</div>' +
-          '<div style="font-size: 17pt; font-weight: 700; line-height: 1.85; margin-top: 8pt;">' +
+          '<div class="title-plate-sub">( الْمُسَمَّى بِـ « غَايَةِ الاِخْتِصَارِ وَالتَّقْرِيبِ » )</div>' +
+          '<div class="title-plate-desc">' +
             'التَّفْرِيغُ الْحَرْفِيُّ الْكَامِلُ لِدُرُوسِ شَرْحِ مَتْنِ أَبِي شُجَاعٍ' +
           '</div>' +
         '</div>' +
         '<div style="font-size: 12pt; line-height: 1.95; width:92%;">' +
-          '<div style="font-size: 13.5pt;">لِفَضِيلَةِ الشَّيْخِ <strong>أَحْمَدَ الْجَوْهَرِيِّ عَبْدِ الْجَوَادِ</strong></div>' +
+          '<div class="title-plate-author">لِفَضِيلَةِ الشَّيْخِ <strong>أَحْمَدَ الْجَوْهَرِيِّ عَبْدِ الْجَوَادِ</strong></div>' +
           '<div style="font-size: 11pt;">( حَفِظَهُ اللهُ تَعَالَى وَنَفَعَ بِعِلْمِهِ )</div>' +
-          '<div style="font-size: 11.2pt; margin-top: 10pt; border-top: 0.5pt solid #555; padding-top: 8pt;">' +
+          '<div class="title-plate-divider">' +
             'وَالْمَتْنُ لِلْقَاضِي أَبِي شُجَاعٍ أَحْمَدَ بْنِ الْحُسَيْنِ الأَصْفَهَانِيِّ (٤٣٣ – ٥٩٣ هـ)' +
           '</div>' +
         '</div>' +
-        '<div style="width:100%; display:flex; justify-content:space-between; font-size:10.8pt; font-weight:700; padding:0 4mm;">' +
+        '<div class="title-plate-bottom">' +
           '<span>كِتَابُ الطَّهَارَةِ وَكِتَابُ الصَّلاَةِ</span>' +
           '<span>٢٥ لِقَاءً صَوْتِيًّا كَامِلاً</span>' +
         '</div>' +
       '</div></div>';
   }
 
-  // Page 2: Colophon & Methodology Notice
+  // Page 3: Colophon, Methodology & Glossary Source Credit
   {
     const { bodyFrame } = createPage({ framed: true, skipHeader: true });
+    const srcText = data.glossary_source || '«الأَنوَارُ عَلَى غَايَةِ الاِخْتِصَارِ» لِجَامِعِهِ عَبْدِ الرَّحْمَنِ مُحَمَّدٍ نُورِ الدِّينِ';
     bodyFrame.innerHTML =
       '<div class="frame-outer"><div class="frame-inner">' +
-        '<div style="font-size: 15.5pt; font-weight: 700; line-height: 2; margin-top: 10mm;">' +
-          'تَيْسِيرُ الانْتِفَاعِ بِشَرْحِ مُخْتَصَرِ أَبِي شُجَاعٍ<br>' +
-          '<span style="font-size: 12pt; font-weight: 400;">تَفْرِيغٌ حَرْفِيٌّ كَامِلٌ مُرَاجَعٌ لِدُرُوسِ السِّلْسِلَةِ الْفِقْهِيَّةِ الشَّافِعِيَّةِ</span><br>' +
-          '<span style="font-size: 11.5pt;">( اللِّقَاءَاتُ : ١ – ٢٥ )</span>' +
+        '<div style="font-size: 15pt; font-weight: 700; line-height: 1.85; margin-top: 2mm;">' +
+          '<span class="colophon-accent">تَيْسِيرُ الانْتِفَاعِ بِشَرْحِ مُخْتَصَرِ أَبِي شُجَاعٍ</span><br>' +
+          '<span style="font-size: 11.5pt; font-weight: 400;">تَفْرِيغٌ حَرْفِيٌّ كَامِلٌ مُرَاجَعٌ لِدُرُوسِ السِّلْسِلَةِ الْفِقْهِيَّةِ الشَّافِعِيَّةِ</span><br>' +
+          '<span style="font-size: 11pt; font-weight: 400;">( اللِّقَاءَاتُ : ١ – ٢٥ )</span>' +
         '</div>' +
         '<div class="disclaimer-box">' +
           'أُعِدَّ هَذَا الْكِتَابُ بِإِثْبَاتِ كَلاَمِ الشَّيْخِ الشَّارِحِ كَامِلاً كَمَا أُلْقِيَ دُونَ حَذْفٍ أَوْ اخْتِصَارٍ ،<br>' +
           'مَعَ إِثْبَاتِ مَتْنِ أَبِي شُجَاعٍ مَضْبُوطاً بِالشَّكْلِ أَعْلَى الصَّفْحَةِ مَفْصُولاً بِخَطٍّ أُفُقِيٍّ عَنِ الشَّرْحِ أَسْفَلَهُ' +
         '</div>' +
-        '<div style="font-size: 10.5pt; line-height: 1.9; width: 92%;">' +
-          '<div><strong>رُمُوزُ الضَّبْطِ وَالتَّنْسِيقِ فِي هَذِهِ النُّسْخَةِ :</strong></div>' +
-          '<div>الْمَتْنُ بِالْخَطِّ الْكَبِيرِ أَعْلَى الصَّفْحَةِ مَفْصُولاً بِخَطٍّ أُفُقِيٍّ عَنِ الشَّرْحِ أَسْفَلَهُ</div>' +
-          '<div><strong>الْخَطُّ الْعَرِيضُ دَاخِلَ الشَّرْحِ</strong> يُمَيِّزُ أَلْفَاظَ الْمَتْنِ الَّتِي يَسْتَشْهِدُ بِهَا الشَّارِحُ</div>' +
-          '<div>﴿ ... ﴾ لِلآيَاتِ الْقُرْآنِيَّةِ &nbsp;•&nbsp; « ... » لِلأَحَادِيثِ النَّبَوِيَّةِ &nbsp;•&nbsp; [ ... ] لِعَنَاوِينِ الْفُصُولِ</div>' +
+        '<div class="colophon-source-box">' +
+          '<div class="colophon-accent">مَنْهَجُ الحَوَاشِي وَتَفْسِيرِ غَرِيبِ الْمَتْنِ :</div>' +
+          '<div>أُلْحِقَتْ بِالحَوَاشِي أَسْفَلَ الصَّفَحَاتِ مَعَانِي الأَلْفَاظِ الْغَرِيبَةِ وَبَعْضِ الْمُصْطَلَحَاتِ الَّتِي لَمْ يَتَعَرَّضْ الشَّيْخُ الشَّارِحُ لِبَيَانِهَا فِي مَوْضِعِهَا، مُنْتَقَاةً مِنْ رِسَالَةِ :</div>' +
+          '<div class="colophon-source-title">' + esc(srcText) + '</div>' +
+          '<div>بِتَرْقِيمٍ مُسْتَقِلٍّ لِكُلِّ صَفْحَةٍ يَبْدَأُ بِـ <span class="colophon-accent">(١)</span> دُونَ تَكْرَارٍ لِلْمَعْنَى فِي الصَّفْحَةِ الْوَاحِدَةِ.</div>' +
         '</div>' +
-        '<div style="border-top: 0.7pt solid #111; padding-top: 4pt; width: 85%; font-size: 10.5pt;">' +
+        '<div style="font-size: 10pt; line-height: 1.85; width: 92%;">' +
+          '<div><span class="colophon-accent">رُمُوزُ الضَّبْطِ وَالتَّنْسِيقِ :</span></div>' +
+          '<div><strong>الْخَطُّ الْعَرِيضُ دَاخِلَ الشَّرْحِ</strong> يُمَيِّزُ أَلْفَاظَ الْمَتْنِ الَّتِي يَسْتَشْهِدُ بِهَا الشَّارِحُ</div>' +
+          '<div>﴿ ... ﴾ لِلآيَاتِ الْقُرْآنِيَّةِ &nbsp;•&nbsp; « ... » لِلأَحَادِيثِ &nbsp;•&nbsp; (١) لِغَرِيبِ الْمَتْنِ &nbsp;•&nbsp; (*) لِبَيَانِ اللِّقَاءِ الصَّوْتِيِّ</div>' +
+        '</div>' +
+        '<div class="colophon-foot">' +
           'تَيْسِيرُ الانْتِفَاعِ بِشَرْحِ مُخْتَصَرِ أَبِي شُجَاعٍ — لِفَضِيلَةِ الشَّيْخِ أَحْمَدَ الْجَوْهَرِيِّ' +
         '</div>' +
       '</div></div>';
   }
 
-  // Page 3: Basmalah Opening Plate
+  // Page 4: Basmalah Opening Plate
   {
     const { bodyFrame } = createPage({ framed: true, skipHeader: true });
     bodyFrame.innerHTML =
       '<div class="frame-outer"><div class="frame-inner" style="justify-content:center;">' +
-        '<div style="font-family:AmiriQuranFont,AmiriBook,serif; font-size:26pt; line-height:2; letter-spacing:0.3pt;">' +
+        '<div class="basmalah-plate-text">' +
           'بِسْمِ اللَّهِ الرَّحْمَـٰنِ الرَّحِيمِ' +
         '</div>' +
         '<div style="margin-top:8pt;">' + THREE_STARS_HTML + '</div>' +
@@ -260,10 +308,41 @@ window.renderFullBook = async function(data) {
   // ==================== 2. CORE SPLIT-PAGE BODY LAYOUT ====================
   const tocEntries = [];
   const lessonStartPage = {};
-  const ayahIndexMap = new Map(); // ayahText -> Set(pageNumbers)
+  const ayahIndexMap = new Map();
 
   let curPageObj = null;
-  let footnoteNum = 0;
+
+  function setupPageFootnotesDom(p) {
+    p.footnoteArea = p.bodyFrame.querySelector('.footnote-area');
+    p.footnoteText = p.bodyFrame.querySelector('.footnote-text');
+    p.hasFootnote = false;
+  }
+
+  function renderPageFootnotes(p) {
+    if (!p.lessonNoteText && p.glossaryNotes.length === 0) {
+      p.footnoteArea.style.display = 'none';
+      p.footnoteText.innerHTML = '';
+      p.hasFootnote = false;
+      return;
+    }
+    p.footnoteArea.style.display = 'block';
+    let h = '';
+    if (p.lessonNoteText) {
+      h += '<div class="fn-lesson-note">(*) ' + esc(p.lessonNoteText) + '</div>';
+    }
+    for (const g of p.glossaryNotes) {
+      const colonIdx = g.text.indexOf(':');
+      if (colonIdx > 0) {
+        const termPart = g.text.slice(0, colonIdx + 1);
+        const bodyPart = g.text.slice(colonIdx + 1);
+        h += '<div class="fn-gloss-row"><span class="fn-gloss-num">(' + toE(g.num) + ')</span> <span class="fn-gloss-term">' + esc(termPart) + '</span>' + esc(bodyPart) + '</div>';
+      } else {
+        h += '<div class="fn-gloss-row"><span class="fn-gloss-num">(' + toE(g.num) + ')</span> ' + esc(g.text) + '</div>';
+      }
+    }
+    p.footnoteText.innerHTML = h;
+    p.hasFootnote = true;
+  }
 
   function openPrefacePage(centerOverride = null) {
     const p = createPage({ centerTitle: centerOverride });
@@ -272,11 +351,8 @@ window.renderFullBook = async function(data) {
       '<div class="footnote-area" style="display:none;"><div class="footnote-rule"></div><div class="footnote-text"></div></div>';
     p.matnZone = null;
     p.sharhZone = p.bodyFrame.querySelector('.sharh-zone');
-    p.footnoteArea = p.bodyFrame.querySelector('.footnote-area');
-    p.footnoteText = p.bodyFrame.querySelector('.footnote-text');
-    p.hasFootnote = false;
+    setupPageFootnotesDom(p);
     p.unitCountOnPage = 0;
-    p.endsWithStars = false;
     p.isContPage = false;
     p.isPrefacePage = true;
     return p;
@@ -291,28 +367,74 @@ window.renderFullBook = async function(data) {
       '<div class="footnote-area" style="display:none;"><div class="footnote-rule"></div><div class="footnote-text"></div></div>';
     p.matnZone = p.bodyFrame.querySelector('.matn-zone');
     p.sharhZone = p.bodyFrame.querySelector('.sharh-zone');
-    p.footnoteArea = p.bodyFrame.querySelector('.footnote-area');
-    p.footnoteText = p.bodyFrame.querySelector('.footnote-text');
-    p.hasFootnote = false;
+    setupPageFootnotesDom(p);
     p.unitCountOnPage = 0;
-    p.endsWithStars = false;
     p.isContPage = false;
     p.isPrefacePage = false;
     return p;
   }
 
+  // Reserve 6px safety buffer via lastElementChild bounding box for Word .docx font metrics parity
   function fitsPage(p) {
-    return (
-      p.sharhZone.clientHeight >= 24 &&
-      p.sharhZone.scrollHeight <= p.sharhZone.clientHeight + 1 &&
-      p.bodyFrame.scrollHeight <= p.bodyFrame.clientHeight + 1
-    );
+    if (p.sharhZone.clientHeight < 24) return false;
+    if (p.sharhZone.scrollHeight > p.sharhZone.clientHeight) return false;
+    if (p.bodyFrame.scrollHeight > p.bodyFrame.clientHeight) return false;
+    const lastEl = p.sharhZone.lastElementChild;
+    if (lastEl) {
+      const sBottom = p.sharhZone.getBoundingClientRect().bottom;
+      if (lastEl.getBoundingClientRect().bottom > sBottom - 6) return false;
+    }
+    return true;
   }
 
-  function buildMatnHtmlForUnit(u, isContinuationPage = false) {
+  function buildMatnHtmlForUnit(u, pageObj, isContinuationPage = false) {
     if (isContinuationPage) {
       return '<div class="matn-cont-dots">............................................</div>';
     }
+    const glosses = Array.isArray(u.glosses) ? u.glosses : [];
+    const lines = u.matn_lines.map(l => String(l));
+
+    // Match each curated gloss on its FIRST unannotated occurrence inside u.matn_lines
+    const placements = [];
+    for (const g of glosses) {
+      if (pageObj.pageGlossaryIds.has(g.id)) continue;
+      const normKey = g.term.replace(/[\\u064b-\\u065f\\u0670\\u0640\\s]/g, '');
+      if (pageObj.pageGlossaryTerms.has(normKey)) continue;
+      const rx = new RegExp(g.pattern);
+      for (let li = 0; li < lines.length; li++) {
+        const m = rx.exec(lines[li]);
+        if (m) {
+          placements.push({ g, normKey, li, start: m.index, end: m.index + m[0].length });
+          break;
+        }
+      }
+    }
+    // Sort by linear reading position so (١), (٢), (٣)... ALWAYS ascend chronologically down the page
+    placements.sort((a, b) => (a.li - b.li) || (a.start - b.start));
+
+    const byLine = new Map();
+    for (const pl of placements) {
+      if (pageObj.pageGlossaryIds.has(pl.g.id) || pageObj.pageGlossaryTerms.has(pl.normKey)) continue;
+      pageObj.pageGlossaryIds.add(pl.g.id);
+      pageObj.pageGlossaryTerms.add(pl.normKey);
+      pageObj.pageFnNum++;
+      pl.fnNum = pageObj.pageFnNum;
+      pageObj.glossaryNotes.push({ num: pl.fnNum, text: pl.g.gloss });
+      if (!byLine.has(pl.li)) byLine.set(pl.li, []);
+      byLine.get(pl.li).push(pl);
+    }
+
+    // Insert superscript markers right-to-left within each line (string offsets remain valid)
+    for (const [li, pls] of byLine.entries()) {
+      pls.sort((a, b) => b.end - a.end);
+      let s = lines[li];
+      for (const pl of pls) {
+        const tag = '<sup class="fn-ref">(' + toE(pl.fnNum) + ')</sup>';
+        s = s.slice(0, pl.end) + tag + s.slice(pl.end);
+      }
+      lines[li] = s;
+    }
+
     let h = '';
     let anchorPlaced = false;
     if (u.toc_book) {
@@ -324,8 +446,8 @@ window.renderFullBook = async function(data) {
       h += '<div class="matn-bracket-title"' + anchorAttr + '>' + esc(u.toc_fasl) + '</div>';
       anchorPlaced = true;
     }
-    for (let i = 0; i < u.matn_lines.length; i++) {
-      const line = u.matn_lines[i];
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
       const anchorAttr = (!anchorPlaced && i === 0) ? ' id="unit-' + esc(u.id) + '"' : '';
       const isBasmalah = (line.trim() === 'بِسْمِ اللهِ الرَّحْمَنِ الرَّحِيمِ');
       h += '<p class="' + (isBasmalah ? 'matn-basmalah' : 'matn-p') + '"' + anchorAttr + '>' + line + '</p>';
@@ -335,16 +457,6 @@ window.renderFullBook = async function(data) {
       h += THREE_STARS_HTML;
     }
     return h;
-  }
-
-  function addFootnoteToPage(p, noteText) {
-    if (!noteText) return;
-    footnoteNum++;
-    p.footnoteArea.style.display = 'block';
-    const prev = p.footnoteText.innerHTML;
-    const line = '<div>(' + toE(footnoteNum) + ') ' + esc(noteText) + '</div>';
-    p.footnoteText.innerHTML = prev + line;
-    p.hasFootnote = true;
   }
 
   function recordAyahsOnPage(htmlChunk, pNum) {
@@ -364,7 +476,7 @@ window.renderFullBook = async function(data) {
     const np = u.is_preface ? openPrefacePage() : openBodyPage();
     np.isContPage = true;
     if (!u.is_preface) {
-      np.matnZone.innerHTML = buildMatnHtmlForUnit(u, true);
+      np.matnZone.innerHTML = buildMatnHtmlForUnit(u, np, true);
     }
     np.unitCountOnPage++;
     return np;
@@ -375,56 +487,13 @@ window.renderFullBook = async function(data) {
   for (let ui = 0; ui < data.units.length; ui++) {
     if (ui % 8 === 0) await new Promise(r => setTimeout(r, 0));
     const u = data.units[ui];
-    const matnHtml = u.is_preface ? '' : buildMatnHtmlForUnit(u, false);
 
-    // Start fresh page on book transitions or preface <-> Matn transitions
-    if (curPageObj.unitCountOnPage > 0 && (u.toc_book || Boolean(u.is_preface) !== Boolean(curPageObj.isPrefacePage))) {
+    // STRICT SEPARATION: Every body unit (!u.is_preface) ALWAYS starts cleanly at the top of its own fresh page!
+    // Never mix previous unit's continuation dots or Sharh tail with the next Matn unit.
+    if (curPageObj.unitCountOnPage > 0) {
       curPageObj = u.is_preface ? openPrefacePage() : openBodyPage();
     }
 
-    // Decide whether U can stack on curPageObj OR needs a fresh page
-    if (curPageObj.unitCountOnPage > 0) {
-      const savedMatn = curPageObj.matnZone ? curPageObj.matnZone.innerHTML : '';
-      const savedSharh = curPageObj.sharhZone.innerHTML;
-      const savedFnDisplay = curPageObj.footnoteArea.style.display;
-      const savedFnHtml = curPageObj.footnoteText.innerHTML;
-      const savedFnNum = footnoteNum;
-
-      if (!curPageObj.endsWithStars) {
-        if (curPageObj.matnZone) curPageObj.matnZone.insertAdjacentHTML('beforeend', THREE_STARS_HTML);
-        curPageObj.sharhZone.insertAdjacentHTML('beforeend', THREE_STARS_HTML);
-      }
-      if (curPageObj.matnZone && matnHtml) {
-        curPageObj.matnZone.insertAdjacentHTML('beforeend', matnHtml);
-      }
-      if (u.lesson_note) addFootnoteToPage(curPageObj, u.lesson_note);
-
-      const firstAtoms = u.sharh_paras_html.length ? tokenizeHtml(u.sharh_paras_html[0]) : [];
-      const reqCount = Math.min(28, firstAtoms.length);
-      const minSnippet = firstAtoms.length > reqCount ? joinAtoms(firstAtoms.slice(0, reqCount)) : (u.sharh_paras_html[0] || '');
-      const testP = document.createElement('p');
-      testP.className = 'sharh-p';
-      testP.innerHTML = minSnippet;
-      curPageObj.sharhZone.appendChild(testP);
-
-      const canStack = fitsPage(curPageObj);
-
-      // Revert tentative DOM
-      if (curPageObj.matnZone) curPageObj.matnZone.innerHTML = savedMatn;
-      curPageObj.sharhZone.innerHTML = savedSharh;
-      curPageObj.footnoteArea.style.display = savedFnDisplay;
-      curPageObj.footnoteText.innerHTML = savedFnHtml;
-      footnoteNum = savedFnNum;
-
-      if (!canStack) {
-        curPageObj = u.is_preface ? openPrefacePage() : openBodyPage();
-      } else if (!curPageObj.endsWithStars) {
-        if (curPageObj.matnZone) curPageObj.matnZone.insertAdjacentHTML('beforeend', THREE_STARS_HTML);
-        curPageObj.sharhZone.insertAdjacentHTML('beforeend', THREE_STARS_HTML);
-      }
-    }
-
-    // Record TOC & lesson start page
     if (!(u.lesson_num in lessonStartPage)) {
       lessonStartPage[u.lesson_num] = curPageObj.pNum;
     }
@@ -438,15 +507,16 @@ window.renderFullBook = async function(data) {
     if (u.is_preface) {
       curPageObj.sharhZone.insertAdjacentHTML('beforeend', '<div class="preface-h" id="unit-' + esc(u.id) + '">' + esc(u.toc_fasl || 'مُقَدِّمَةُ الْكِتَابِ') + '</div>');
     } else {
+      const matnHtml = buildMatnHtmlForUnit(u, curPageObj, false);
       curPageObj.matnZone.insertAdjacentHTML('beforeend', matnHtml);
     }
     if (u.lesson_note) {
-      addFootnoteToPage(curPageObj, u.lesson_note);
+      curPageObj.lessonNoteText = u.lesson_note;
     }
+    renderPageFootnotes(curPageObj);
     curPageObj.unitCountOnPage++;
-    curPageObj.endsWithStars = false;
 
-    // Render all paragraphs of U's Sharh across as many pages as needed
+    // Flow all Sharh paragraphs across curPageObj and clean overflow continuation pages (............................................)
     for (let pi = 0; pi < u.sharh_paras_html.length; pi++) {
       let atoms = tokenizeHtml(u.sharh_paras_html[pi]);
       let isCont = false;
@@ -461,7 +531,6 @@ window.renderFullBook = async function(data) {
           recordAyahsOnPage(pEl.innerHTML, curPageObj.pNum);
           atoms = [];
         } else {
-          // Binary search for max fitting prefix inside atoms
           let lo = 1, hi = atoms.length - 1, best = 0;
           while (lo <= hi) {
             const mid = (lo + hi) >> 1;
@@ -500,7 +569,6 @@ window.renderFullBook = async function(data) {
       }
     }
 
-    // Add closing 3 floral stars after U's Sharh if fasl_end — never let stars overflow!
     if (u.fasl_end) {
       curPageObj.sharhZone.insertAdjacentHTML('beforeend', THREE_STARS_HTML);
       if (!fitsPage(curPageObj)) {
@@ -508,18 +576,12 @@ window.renderFullBook = async function(data) {
         if (starsEl) starsEl.style.margin = '1pt 0';
         if (!fitsPage(curPageObj)) {
           curPageObj.sharhZone.removeChild(starsEl);
-          curPageObj.endsWithStars = false;
-        } else {
-          curPageObj.endsWithStars = true;
         }
-      } else {
-        curPageObj.endsWithStars = true;
       }
     }
   }
 
   // ==================== 3. BACK MATTER INDEXES ====================
-  // 3A. فهرس الآيات القرآنية
   let ayahStartPage = null;
   if (ayahIndexMap.size > 0) {
     const ayahList = Array.from(ayahIndexMap.entries());
@@ -539,7 +601,10 @@ window.renderFullBook = async function(data) {
       row.innerHTML = '<span class="ayah-idx-text">﴿' + esc(ayahTxt) + '﴾</span>' +
                       '<span class="ayah-idx-pages">' + pgLinks + '</span>';
       ayBox.appendChild(row);
-      if (ayPage.bodyFrame.scrollHeight > ayPage.bodyFrame.clientHeight + 1 && ayBox.children.length > 1) {
+      const lastAy = ayBox.lastElementChild;
+      const ayOverflow = ayPage.bodyFrame.scrollHeight > ayPage.bodyFrame.clientHeight ||
+        (lastAy && lastAy.getBoundingClientRect().bottom > ayPage.bodyFrame.getBoundingClientRect().bottom - 6);
+      if (ayOverflow && ayBox.children.length > 1) {
         ayBox.removeChild(row);
         ayPage = createPage({ centerTitle: 'فَهْرَسُ الآيَاتِ الْقُرْآنِيَّةِ' });
         ayPage.bodyFrame.innerHTML =
@@ -552,7 +617,6 @@ window.renderFullBook = async function(data) {
     }
   }
 
-  // 3B. الفهرس العام Two-Column General Index
   const firstTocPg = pageCounter + 1;
   const allTocEntries = [
     ...tocEntries,
@@ -577,7 +641,13 @@ window.renderFullBook = async function(data) {
       '</div>';
     const colRight = pObj.bodyFrame.querySelector('.toc-col-right');
     const colLeft = pObj.bodyFrame.querySelector('.toc-col-left');
-    const maxColH = pObj.bodyFrame.clientHeight - 44;
+    const colOverflows = (col) => {
+      if (pObj.bodyFrame.scrollHeight > pObj.bodyFrame.clientHeight) return true;
+      const bfBottom = pObj.bodyFrame.getBoundingClientRect().bottom - 6;
+      const last = col.lastElementChild;
+      if (last && last.getBoundingClientRect().bottom > bfBottom) return true;
+      return false;
+    };
 
     const makeTocEl = (e) => {
       const div = document.createElement('div');
@@ -590,7 +660,7 @@ window.renderFullBook = async function(data) {
                         '<span class="toc-dots"></span>' +
                         '<span class="toc-pg"><a href="#' + esc(e.anchor) + '">' + toE(e.page) + '</a></span>';
       } else {
-        const nbTitle = esc(e.title).replace(/^\[\s+/, '[\u00A0').replace(/\s+\]$/, '\u00A0]');
+        const nbTitle = esc(e.title).replace(/^\\[\\s+/, '[\\u00A0').replace(/\\s+\\]$/, '\\u00A0]');
         div.className = 'toc-row';
         div.innerHTML = '<span class="toc-row-title"><a href="#' + esc(e.anchor) + '">' + nbTitle + '</a></span>' +
                         '<span class="toc-dots"></span>' +
@@ -603,7 +673,7 @@ window.renderFullBook = async function(data) {
     while (fIdx < allTocEntries.length) {
       const el = makeTocEl(allTocEntries[fIdx]);
       colRight.appendChild(el);
-      if (colRight.scrollHeight > maxColH && colRight.children.length > 1) {
+      if (colOverflows(colRight) && colRight.children.length > 1) {
         colRight.removeChild(el);
         break;
       }
@@ -612,7 +682,7 @@ window.renderFullBook = async function(data) {
     while (fIdx < allTocEntries.length) {
       const el = makeTocEl(allTocEntries[fIdx]);
       colLeft.appendChild(el);
-      if (colLeft.scrollHeight > maxColH && colLeft.children.length > 1) {
+      if (colOverflows(colLeft) && colLeft.children.length > 1) {
         colLeft.removeChild(el);
         break;
       }
@@ -621,24 +691,30 @@ window.renderFullBook = async function(data) {
     if (fIdx === startFIdx) break;
   }
 
-  return { totalPages: pageCounter, tocCount: tocEntries.length, ayahCount: ayahIndexMap.size };
+  // Ensure all cover/embedded images are decoded before PDF capture
+  await Promise.all(Array.from(document.images).map(img => (
+    img.complete ? Promise.resolve() : new Promise(r => { img.onload = r; img.onerror = r; })
+  )));
+
+  return { totalPages: pageCounter, tocCount: tocEntries.length, ayahCount: ayahIndexMap.size, edition };
 };
 `;
 
 async function main() {
-  console.log('1. Preparing self-executing pagination HTML...');
+  console.log(`1. Preparing pagination HTML (edition=${EDITION})...`);
   const runnerScript = `<script>
 window.__BOOK_DATA = ${JSON.stringify(BOOK_DATA)};
+window.__BOOK_EDITION = ${JSON.stringify(EDITION)};
 ${PAGINATE_FN_SRC}
 window.__BOOK_RESULT = null;
 window.__BOOK_ERROR = null;
 window.addEventListener('load', () => {
-  window.renderFullBook(window.__BOOK_DATA)
+  window.renderFullBook(window.__BOOK_DATA, window.__BOOK_EDITION)
     .then(r => { window.__BOOK_RESULT = r; })
     .catch(e => { window.__BOOK_ERROR = String(e && e.stack || e); });
 });
 </script>`;
-  const tmpTemplatePath = '/tmp/book_template_run.html';
+  const tmpTemplatePath = `/tmp/book_template_run_${EDITION}.html`;
   fs.writeFileSync(tmpTemplatePath, TEMPLATE_HTML.replace('</body>', runnerScript + '\n</body>'), 'utf8');
 
   console.log('2. Launching Chromium CDP...');
@@ -651,7 +727,7 @@ window.addEventListener('load', () => {
 
     console.log('3. Waiting for DOM pagination...');
     let pagRes = null;
-    for (let i = 0; i < 120; i++) {
+    for (let i = 0; i < 240; i++) {
       await sleep(250);
       const check = await cdp.send('Runtime.evaluate', {
         expression: `JSON.stringify({ res: window.__BOOK_RESULT, err: window.__BOOK_ERROR, pg: document.querySelectorAll('.page').length })`,
@@ -668,7 +744,6 @@ window.addEventListener('load', () => {
     if (!pagRes) throw new Error('Pagination timed out');
     console.log('4. Pagination complete:', pagRes);
 
-    // Export standalone paginated HTML (strip runner script first)
     const htmlPath = OUT_HTML || '/tmp/book_paginated.html';
     await cdp.send('Runtime.evaluate', {
       expression: `document.querySelectorAll('script').forEach(s => s.remove()); window.__HTML_LEN = document.documentElement.outerHTML.length;`,
@@ -688,7 +763,6 @@ window.addEventListener('load', () => {
     fs.writeFileSync(htmlPath, fullHtml, 'utf8');
     console.log('5. Saved paginated HTML book:', htmlPath, `(${fullHtml.length} chars)`);
 
-    // Print PDF viaPage.printToPDF with transferMode: ReturnAsStream so large PDFs never choke WebSocket frames
     console.log('6. Rendering print-grade PDF...');
     const pdfRes = await cdp.send('Page.printToPDF', {
       paperWidth: 162 / 25.4,
@@ -707,7 +781,7 @@ window.addEventListener('load', () => {
     while (true) {
       const readRes = await cdp.send('IO.read', { handle: streamHandle, size: 256 * 1024 });
       if (readRes.data) {
-        chunks.push( readRes.base64Encoded ? Buffer.from(readRes.data, 'base64') : Buffer.from(readRes.data) );
+        chunks.push(readRes.base64Encoded ? Buffer.from(readRes.data, 'base64') : Buffer.from(readRes.data));
       }
       if (readRes.eof) break;
     }

@@ -25,6 +25,28 @@
   font-weight: 400; font-style: normal;
 }
 
+:root {
+  --ink: #111111;
+  --accent: #111111;
+  --matn-ink: #111111;
+  --strong-ink: #111111;
+  --ayah-ink: #111111;
+  --rule-ink: #111111;
+  --fn-num-ink: #111111;
+  --subtle-ink: #333333;
+}
+
+body.edition-two-color {
+  --ink: #111111;
+  --accent: #9b111e;
+  --matn-ink: #9b111e;
+  --strong-ink: #9b111e;
+  --ayah-ink: #111111;
+  --rule-ink: #9b111e;
+  --fn-num-ink: #9b111e;
+  --subtle-ink: #333333;
+}
+
 @page {
   size: 162mm 234mm;
   margin: 0;
@@ -35,7 +57,7 @@ html, body {
   margin: 0;
   padding: 0;
   font-family: 'AmiriBook', serif;
-  color: #111;
+  color: var(--ink);
   background: #fff;
   -webkit-print-color-adjust: exact;
   print-color-adjust: exact;
@@ -59,22 +81,32 @@ html, body {
   break-after: auto;
 }
 
+.page.cover-page {
+  padding: 0;
+}
+.cover-img {
+  width: 162mm;
+  height: 234mm;
+  display: block;
+  object-fit: cover;
+}
+
 .page.framed-page {
   padding: 12.5mm 14mm;
 }
 
-/* Title & Edition double frames matching p-001 / p-002 / p-004 */
+/* Title & Edition double frames */
 .frame-outer {
   width: 100%;
   height: 100%;
-  border: 2.2pt solid #111;
+  border: 2.2pt solid var(--accent);
   padding: 2.5pt;
 }
 .frame-inner {
   width: 100%;
   height: 100%;
-  border: 0.75pt solid #111;
-  padding: 14mm 10mm 11mm 10mm;
+  border: 0.75pt solid var(--accent);
+  padding: 12mm 10mm 10mm 10mm;
   display: flex;
   flex-direction: column;
   justify-content: space-between;
@@ -82,22 +114,90 @@ html, body {
   text-align: center;
 }
 
-.disclaimer-box {
-  border: 1pt solid #111;
-  padding: 6mm 10mm;
-  margin: 4mm auto;
-  width: 86%;
-  font-size: 12.5pt;
+.title-plate-main {
+  font-size: 24pt;
   font-weight: 700;
-  line-height: 1.9;
+  line-height: 1.85;
+  margin-top: 3mm;
+  color: var(--accent);
+}
+.title-plate-sub {
+  font-size: 14pt;
+  margin: 10pt 0 4pt 0;
+  color: var(--ink);
+}
+.title-plate-desc {
+  font-size: 17pt;
+  font-weight: 700;
+  line-height: 1.85;
+  margin-top: 8pt;
+  color: var(--ink);
+}
+.title-plate-author {
+  font-size: 13.5pt;
+  color: var(--ink);
+}
+.title-plate-author strong {
+  color: var(--accent);
+}
+.title-plate-divider {
+  font-size: 11.2pt;
+  margin-top: 10pt;
+  border-top: 0.5pt solid var(--rule-ink);
+  padding-top: 8pt;
+}
+.title-plate-bottom {
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  font-size: 10.8pt;
+  font-weight: 700;
+  padding: 0 4mm;
+  color: var(--accent);
 }
 
-/* Running header matching Dar Ibn Hazm p-005..p-368 */
+.disclaimer-box {
+  border: 1pt solid var(--accent);
+  padding: 5mm 9mm;
+  margin: 2mm auto;
+  width: 90%;
+  font-size: 12pt;
+  font-weight: 700;
+  line-height: 1.85;
+  color: var(--ink);
+}
+.colophon-source-box {
+  border-top: 0.6pt solid var(--rule-ink);
+  padding-top: 5pt;
+  width: 90%;
+  font-size: 10.2pt;
+  line-height: 1.8;
+}
+.colophon-source-title {
+  font-weight: 700;
+  color: var(--accent);
+  font-size: 10.8pt;
+  margin: 1pt 0;
+}
+.colophon-accent {
+  color: var(--accent);
+  font-weight: 700;
+}
+.colophon-foot {
+  border-top: 0.7pt solid var(--rule-ink);
+  padding-top: 4pt;
+  width: 85%;
+  font-size: 10.5pt;
+  color: var(--accent);
+  font-weight: 700;
+}
+
+/* Running header */
 .running-header {
   display: flex;
   justify-content: space-between;
   align-items: baseline;
-  border-bottom: 0.65pt solid #111;
+  border-bottom: 0.65pt solid var(--rule-ink);
   padding-bottom: 3pt;
   margin-bottom: 6pt;
   font-size: 10.5pt;
@@ -106,7 +206,8 @@ html, body {
 }
 .running-header .rh-side {
   width: 18mm;
-  font-weight: 400;
+  font-weight: 700;
+  color: var(--accent);
 }
 .running-header .rh-right { text-align: right; }
 .running-header .rh-left { text-align: left; }
@@ -114,6 +215,7 @@ html, body {
   flex: 1;
   text-align: center;
   font-weight: 400;
+  color: var(--ink);
 }
 
 /* Core body frame containing Upper Matn + Rule + Lower Sharh + Footnotes */
@@ -131,6 +233,7 @@ html, body {
   font-size: 13.4pt;
   line-height: 1.85;
   flex-shrink: 0;
+  color: var(--matn-ink);
 }
 .matn-book-title {
   text-align: center;
@@ -138,6 +241,7 @@ html, body {
   font-weight: 700;
   line-height: 1.6;
   margin: 0 0 4pt 0;
+  color: var(--accent);
 }
 .matn-bracket-title {
   text-align: center;
@@ -145,6 +249,7 @@ html, body {
   font-weight: 700;
   line-height: 1.55;
   margin: 0 0 4pt 0;
+  color: var(--accent);
 }
 .matn-sub-label {
   text-align: center;
@@ -152,7 +257,7 @@ html, body {
   font-weight: 700;
   line-height: 1.5;
   margin: 0 0 2.5pt 0;
-  color: #222;
+  color: var(--subtle-ink);
 }
 .matn-p {
   margin: 0 0 1.5pt 0;
@@ -166,13 +271,14 @@ html, body {
   font-size: 15.5pt;
   line-height: 1.8;
   margin: 1pt 0 3pt 0;
+  color: var(--matn-ink);
 }
 .matn-cont-dots {
   text-align: center;
   font-size: 13.5pt;
   line-height: 1.35;
   letter-spacing: 0.5pt;
-  color: #111;
+  color: var(--accent);
   margin: 1pt 0 3pt 0;
 }
 .preface-h {
@@ -181,6 +287,17 @@ html, body {
   font-weight: 700;
   line-height: 1.65;
   margin: 2pt 0 8pt 0;
+  color: var(--accent);
+}
+
+/* Inline superscript footnote marker inside Matn */
+.fn-ref {
+  font-size: 0.62em;
+  vertical-align: super;
+  line-height: 0;
+  font-weight: 700;
+  margin-right: 1pt;
+  color: var(--fn-num-ink);
 }
 
 /* Ornamental 8-petal floral stars */
@@ -191,17 +308,19 @@ html, body {
   gap: 24pt;
   margin: 4pt 0;
   flex-shrink: 0;
+  color: var(--accent);
 }
 .star-svg {
   width: 8pt;
   height: 8pt;
   display: inline-block;
+  color: var(--accent);
 }
 
 /* Middle full-width rule separating Matn above from Sharh below */
 .split-rule {
   border: none;
-  border-top: 0.75pt solid #111;
+  border-top: 0.75pt solid var(--rule-ink);
   margin: 4pt 0 5.5pt 0;
   flex-shrink: 0;
 }
@@ -213,20 +332,7 @@ html, body {
   flex: 1;
   overflow: hidden;
   min-height: 0;
-}
-.sharh-center-title {
-  text-align: center;
-  font-size: 13.5pt;
-  font-weight: 700;
-  line-height: 1.6;
-  margin: 1pt 0 4pt 0;
-}
-.sharh-sub-title {
-  text-align: center;
-  font-size: 12pt;
-  font-weight: 700;
-  line-height: 1.55;
-  margin: 1pt 0 3.5pt 0;
+  color: var(--ink);
 }
 .sharh-p {
   margin: 0 0 1.5pt 0;
@@ -239,14 +345,16 @@ html, body {
 }
 .sharh-p strong, .sharh-zone strong {
   font-weight: 700;
+  color: var(--strong-ink);
 }
 .ayah {
   font-family: 'AmiriQuranFont', 'AmiriBook', serif;
   font-size: 11.5pt;
   line-height: 1.78;
+  color: var(--ayah-ink);
 }
 
-/* Footnotes matching p-021 / p-024 / p-027 */
+/* Per-page footnotes */
 .footnote-area {
   margin-top: auto;
   padding-top: 5pt;
@@ -254,81 +362,47 @@ html, body {
 }
 .footnote-rule {
   width: 34mm;
-  border-top: 0.55pt solid #111;
+  border-top: 0.55pt solid var(--rule-ink);
   margin-bottom: 2.5pt;
 }
 .footnote-text {
   font-size: 8.8pt;
   line-height: 1.55;
-  color: #111;
+  color: var(--ink);
+}
+.fn-lesson-note {
+  color: var(--subtle-ink);
+  font-size: 8.4pt;
+  margin-bottom: 1pt;
+}
+.fn-gloss-row {
+  margin-top: 0.5pt;
+}
+.fn-gloss-num {
+  font-weight: 700;
+  color: var(--fn-num-ink);
+}
+.fn-gloss-term {
+  font-weight: 700;
+  color: var(--ink);
 }
 
 /* Basmalah Calligraphic Ornament */
-.basmalah-block {
-  text-align: center;
-  margin: 1mm 0 2mm 0;
-}
-.basmalah-text {
+.basmalah-plate-text {
   font-family: 'AmiriQuranFont', 'AmiriBook', serif;
-  font-size: 20pt;
-  line-height: 1.65;
-  display: inline-block;
-  padding: 1pt 14pt;
+  font-size: 26pt;
+  line-height: 2;
+  letter-spacing: 0.3pt;
+  color: var(--accent);
 }
 
-/* Front matter & Back matter styles */
-.front-h {
-  text-align: center;
-  font-size: 14.5pt;
-  font-weight: 700;
-  line-height: 1.6;
-  margin: 2pt 0 3.5pt 0;
-}
-.front-sub {
-  font-size: 12pt;
-  font-weight: 700;
-  margin: 4pt 0 2pt 0;
-}
-.front-p {
-  font-size: 11pt;
-  line-height: 1.66;
-  text-align: justify;
-  text-align-last: right;
-  text-indent: 1.4em;
-  margin: 0 0 1.5pt 0;
-}
-
-/* Classic academic tables for Lesson schedule & Quran index */
-.classic-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 9.8pt;
-  line-height: 1.55;
-  margin-top: 4pt;
-}
-.classic-table th {
-  border-top: 1pt solid #111;
-  border-bottom: 0.8pt solid #111;
-  padding: 3pt 4pt;
-  font-weight: 700;
-  text-align: right;
-}
-.classic-table td {
-  border-bottom: 0.35pt solid #888;
-  padding: 2.5pt 4pt;
-  vertical-align: top;
-}
-.classic-table td a, .toc-row a, .toc-book-row a, .ayah-idx-pages a {
-  color: #111;
-  text-decoration: none;
-}
-
-/* Two-Column General Index (الفهرس العام) exact replica of p-366..p-368 */
+/* Two-Column General Index & Ayah Index */
 .toc-page-title {
   text-align: center;
   font-size: 17pt;
   font-weight: 700;
   margin: 2pt 0 7pt 0;
+  color: var(--accent);
 }
 .toc-two-col {
   display: flex;
@@ -346,7 +420,7 @@ html, body {
 }
 .toc-col-right {
   padding-left: 5.5mm;
-  border-left: 0.6pt solid #111;
+  border-left: 0.6pt solid var(--rule-ink);
 }
 .toc-col-left {
   padding-right: 5.5mm;
@@ -358,6 +432,11 @@ html, body {
   line-height: 1.5;
   display: flex;
   align-items: baseline;
+  color: var(--accent);
+}
+.toc-book-row a {
+  color: var(--accent);
+  text-decoration: none;
 }
 .toc-book-label {
   padding-right: 10pt;
@@ -370,34 +449,42 @@ html, body {
   line-height: 1.55;
   margin: 0.5pt 0;
 }
+.toc-row a, .ayah-idx-pages a {
+  color: var(--ink);
+  text-decoration: none;
+}
 .toc-row-title {
   white-space: normal;
   max-width: 85%;
 }
 .toc-dots {
   flex: 1;
-  border-bottom: 1pt dotted #333;
+  border-bottom: 1pt dotted #555;
   margin: 0 3pt 3pt 3pt;
   min-width: 8pt;
 }
 .toc-pg {
   font-size: 9pt;
   white-space: nowrap;
+  color: var(--accent);
+  font-weight: 700;
 }
 .toc-section-center {
   text-align: center;
   font-size: 11pt;
   font-weight: 700;
   margin: 5pt 0 2pt 0;
+  color: var(--accent);
 }
 .index-col-head {
   display: flex;
   justify-content: space-between;
   font-size: 10.2pt;
   font-weight: 700;
-  border-bottom: 0.6pt solid #111;
+  border-bottom: 0.6pt solid var(--rule-ink);
   padding-bottom: 2pt;
   margin-bottom: 4pt;
+  color: var(--accent);
 }
 .ayah-idx-row {
   display: flex;
@@ -412,12 +499,15 @@ html, body {
   font-family: 'AmiriQuranFont', 'AmiriBook', serif;
   flex: 1;
   padding-left: 6pt;
+  color: var(--ink);
 }
 .ayah-idx-pages {
   white-space: nowrap;
   font-size: 9.8pt;
   min-width: 14mm;
   text-align: left;
+  color: var(--accent);
+  font-weight: 700;
 }
 </style>
 </head>

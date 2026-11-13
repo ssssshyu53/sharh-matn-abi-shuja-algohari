@@ -1,14 +1,22 @@
-import glob
 import json
 import os
 import re
 import shutil
 
-out_dir = '/home/antigravity/تيسير_الانتفاع_بشرح_مختصر_أبي_شجاع'
-old_out_dir = '/home/antigravity/شرح_أبي_شجاع_على_نسق_فتح_القريب_المجيب'
-legacy_md_dir = '/home/antigravity/تفريغ_شرح_متن_أبي_شجاع'
+_ENG = os.path.dirname(os.path.abspath(__file__))
+_REPO = os.path.dirname(_ENG)
+out_dir = os.path.join(_REPO, 'تيسير_الانتفاع_بشرح_مختصر_أبي_شجاع')
+old_out_dir = os.path.join(_REPO, 'شرح_أبي_شجاع_على_نسق_فتح_القريب_المجيب')
+legacy_md_dir = os.path.join(_REPO, 'تفريغ_شرح_متن_أبي_شجاع')
 os.makedirs(out_dir, exist_ok=True)
 os.makedirs(legacy_md_dir, exist_ok=True)
+
+EDIGITS = str.maketrans('0123456789', '٠١٢٣٤٥٦٧٨٩')
+
+
+def to_e(n):
+    return str(n).translate(EDIGITS)
+
 
 LESSON_SPECS = [
     (1, '01_الدرس_الأول_مقدمة_الكتاب_وأنواع_المياه_وأقسامها.md', 'اللقاء الأول: مقدمة الكتاب، ومقدمة المؤلف، وكتاب الطهارة (أنواع المياه وأقسامها)', 'مقدمة الكتاب وكتاب الطهارة'),
@@ -38,24 +46,32 @@ LESSON_SPECS = [
     (25, '25_الدرس_الخامس_والعشرون_أحكام_اللباس_والجنائز.md', 'اللقاء الخامس والعشرون: فصل اللباس، وفصل الجنائز وما يلزم في الميت', 'كتاب الصلاة'),
 ]
 
-playlist_info = json.load(open('/home/antigravity/playlist_info.json', encoding='utf-8'))
-vid_by_num = {}
-for e in playlist_info.get('entries', []):
-    m = re.search(r'\((\d+)\)', e.get('title', ''))
-    if m:
-        lnum = int(m.group(1))
-        vid_by_num[lnum] = (e.get('id'), round((e.get('duration') or 0) / 60))
+book_json = json.load(open(os.path.join(_ENG, 'book_data.json'), encoding='utf-8'))
+vid_by_num_init = {l['lesson_num']: (l.get('url', '').split('v=')[-1] if 'v=' in l.get('url', '') else '', l.get('duration_min', 0)) for l in book_json.get('lessons', [])}
+playlist_info = {'entries': []}
+vid_by_num = vid_by_num_init
+
+glossary_data = json.load(open(os.path.join(_ENG, 'glossary_data.json'), encoding='utf-8'))
+SOURCE_CREDIT = glossary_data.get(
+    'source_credit',
+    '«الأَنوَارُ عَلَى غَايَةِ الاِخْتِصَارِ» لِجَامِعِهِ عَبْدِ الرَّحْمَنِ مُحَمَّدٍ نُورِ الدِّينِ'
+)
+GLOSS_BY_UNIT = glossary_data.get('by_unit', {})
 
 
-def parse_clean_units(path: str):
+def parse_clean_units(lnum: int, path: str):
     content = open(path, encoding='utf-8').read()
     parts = re.split(r'^@@UNIT\s*$', content, flags=re.M)[1:]
     units = []
-    for part in parts:
+    for idx, part in enumerate(parts, start=1):
         m = re.search(r'@@SHARH\s*\n(.*)', part, flags=re.S)
         header = part[:m.start()]
         sharh = m.group(1).strip()
-        meta = {'toc_book': '', 'toc_fasl': '', 'heading': '', 'sharh_header': '', 'matn': [], 'fasl_end': False}
+        meta = {
+            'id': f'L{lnum:02d}_U{idx:02d}',
+            'toc_book': '', 'toc_fasl': '', 'heading': '', 'sharh_header': '',
+            'matn': [], 'fasl_end': False
+        }
         cur = None
         for line in header.splitlines():
             if line.startswith('TOC_BOOK:'):
@@ -75,41 +91,75 @@ def parse_clean_units(path: str):
         matn_lines = [l for l in meta['matn'] if l]
         if meta['toc_book'] and matn_lines and matn_lines[0].strip().rstrip(':') == meta['toc_book'].strip().rstrip(':'):
             matn_lines = matn_lines[1:]
-        meta['matn_str'] = '\n'.join(matn_lines).strip()
+        meta['matn_lines'] = matn_lines
         meta['sharh'] = sharh
         units.append(meta)
     return units
 
 
-book_header = """# تَيْسِيرُ الانْتِفَاعِ بِشَرْحِ مُخْتَصَرِ أَبِي شُجَاعٍ
+def annotate_matn_lines_and_notes(matn_lines, glosses):
+    if not glosses or not matn_lines:
+        return matn_lines, []
+    lines = list(matn_lines)
+    placements = []
+    seen_terms = set()
+    for g in glosses:
+        nk = re.sub(r'[\u064b-\u065f\u0670\u0640\s]', '', g['term'])
+        if nk in seen_terms:
+            continue
+        rx = re.compile(g['pattern'])
+        for li, ln in enumerate(lines):
+            m = rx.search(ln)
+            if m:
+                seen_terms.add(nk)
+                placements.append((li, m.start(), m.end(), g))
+                break
+    placements.sort(key=lambda x: (x[0], x[1]))
+    notes = []
+    by_line = {}
+    for num_idx, (li, _st, end, g) in enumerate(placements, start=1):
+        notes.append((to_e(num_idx), g['gloss']))
+        by_line.setdefault(li, []).append((end, to_e(num_idx)))
+    for li, items in by_line.items():
+        s = lines[li]
+        for end, e_num in sorted(items, key=lambda x: -x[0]):
+            s = s[:end] + f' ({e_num})' + s[end:]
+        lines[li] = s
+    return lines, notes
+
+
+book_header = f"""# تَيْسِيرُ الانْتِفَاعِ بِشَرْحِ مُخْتَصَرِ أَبِي شُجَاعٍ
 ## («غَايَةِ الاِخْتِصَارِ وَالتَّقْرِيبِ»)
 
 **المتن:** غاية الاختصار (متن الغاية والتقريب) للإمام القاضي أبي شجاع أحمد بن الحسين الأصفهاني الشافعي (٤٣٣ – ٥٩٣ هـ)  
 **الشرح:** التفريغ الحرفي الكامل المراجع لدروس فضيلة الشيخ أحمد الجوهري عبد الجواد (حفظه الله تعالى)  
-**المنهج:** إثبات كلام الشيخ الشارح كاملاً كما أُلقي دون حذف أو اختصار، مع وضع كل مقطع من المتن مضبوطاً بالشكل في الأعلى، ثم الخط الفاصل، فالشرح الخاص به أسفله، وتمييز ألفاظ المتن المشروحة داخل الشرح **بالخط العريض**، وضبط الآيات القرآنية بين ﴿...﴾ والأحاديث النبوية بين «...» وخواتيم الفصول بعلامة (✽  ✽  ✽).
+**المنهج:** إثبات كلام الشيخ الشارح كاملاً كما أُلقي دون حذف أو اختصار، مع وضع كل مقطع من المتن مضبوطاً بالشكل في الأعلى، ثم الخط الفاصل، فالشرح الخاص به أسفله، وتمييز ألفاظ المتن المشروحة داخل الشرح **بالخط العريض**، وضبط الآيات القرآنية بين ﴿...﴾ والأحاديث النبوية بين «...» وخواتيم الفصول بعلامة (✽  ✽  ✽).  
+**الحواشي وغريب المتن:** أُلحقت في ذيل المقاطع معاني الألفاظ الغريبة التي لم يتعرّض الشيخ الشارح لبيانها في موضعها، منتقاةً من رسالة **{SOURCE_CREDIT}**.
 
 ---
 """
 
-vol1_header = """# تَيْسِيرُ الانْتِفَاعِ بِشَرْحِ مُخْتَصَرِ أَبِي شُجَاعٍ — الْمُجَلَّدُ الأَوَّلُ (اللقاءات ١ – ١٢)
+vol1_header = f"""# تَيْسِيرُ الانْتِفَاعِ بِشَرْحِ مُخْتَصَرِ أَبِي شُجَاعٍ — الْمُجَلَّدُ الأَوَّلُ (اللقاءات ١ – ١٢)
 ## مُقَدِّمَةُ الْكِتَابِ وَكِتَابُ الطَّهَارَةِ
 
 **المتن:** غاية الاختصار للإمام القاضي أبي شجاع أحمد بن الحسين الأصفهاني الشافعي (رحمه الله تعالى)  
 **الشرح:** التفريغ الكامل غير المختصر لدروس فضيلة الشيخ أحمد الجوهري عبد الجواد (حفظه الله تعالى)  
+**الحواشي وغريب المتن:** منتقاة من رسالة **{SOURCE_CREDIT}**.
 
 ---
 """
 
-vol2_header = """# تَيْسِيرُ الانْتِفَاعِ بِشَرْحِ مُخْتَصَرِ أَبِي شُجَاعٍ — الْمُجَلَّدُ الثَّانِي (اللقاءات ١٣ – ٢٥)
+vol2_header = f"""# تَيْسِيرُ الانْتِفَاعِ بِشَرْحِ مُخْتَصَرِ أَبِي شُجَاعٍ — الْمُجَلَّدُ الثَّانِي (اللقاءات ١٣ – ٢٥)
 ## كِتَابُ الصَّلاَةِ
 
 **المتن:** غاية الاختصار للإمام القاضي أبي شجاع أحمد بن الحسين الأصفهاني الشافعي (رحمه الله تعالى)  
 **الشرح:** التفريغ الكامل غير المختصر لدروس فضيلة الشيخ أحمد الجوهري عبد الجواد (حفظه الله تعالى)  
+**الحواشي وغريب المتن:** منتقاة من رسالة **{SOURCE_CREDIT}**.
 
 ---
 """
 
-# Clean old files inside legacy_md_dir & out_dir (preserve PDF in out_dir)
+# Clean old markdown files while keeping binary deliverables intact
 for fname_existing in os.listdir(legacy_md_dir):
     if fname_existing.endswith('.md'):
         os.remove(os.path.join(legacy_md_dir, fname_existing))
@@ -124,13 +174,14 @@ total_words = 0
 
 for num, fname, title, book_name in LESSON_SPECS:
     vid, dur = vid_by_num.get(num, ('', 0))
-    units = parse_clean_units(f'/home/antigravity/clean_lessons/L{num:02d}.txt')
+    units = parse_clean_units(num, os.path.join(_REPO, 'clean_lessons', f'L{num:02d}.txt'))
     lines = [
         f"# {title}",
         "",
         f"**القسم:** {book_name} — تيسير الانتفاع بشرح مختصر أبي شجاع  ",
-        f"**الشارح:** فضيلة الشيخ أحمد الجوهري عبد الجواد (حفظه الله تعالى)  ",
+        "**الشارح:** فضيلة الشيخ أحمد الجوهري عبد الجواد (حفظه الله تعالى)  ",
         f"**التسجيل الصوتي:** [اللقاء رقم ({num}) على يوتيوب](https://www.youtube.com/watch?v={vid}) ({dur} دقيقة)  ",
+        f"**مرجع حواشي غريب المتن:** {SOURCE_CREDIT}  ",
         "",
         "---",
         "",
@@ -142,8 +193,9 @@ for num, fname, title, book_name in LESSON_SPECS:
         if u['toc_fasl']:
             lines.append(f"### {u['toc_fasl']}")
             lines.append("")
-        if u['matn_str']:
-            for mline in u['matn_str'].splitlines():
+        m_lines, notes = annotate_matn_lines_and_notes(u['matn_lines'], GLOSS_BY_UNIT.get(u['id'], []))
+        if m_lines:
+            for mline in m_lines:
                 if mline.strip():
                     lines.append(f"> **« {mline.strip()} »**")
             lines.append("")
@@ -151,6 +203,11 @@ for num, fname, title, book_name in LESSON_SPECS:
             lines.append("")
         lines.append(u['sharh'])
         lines.append("")
+        if notes:
+            lines.append("> **حاشية غريب المتن:**  ")
+            for n_num, n_text in notes:
+                lines.append(f"> **({n_num})** {n_text}  ")
+            lines.append("")
         if u['fasl_end']:
             lines.append("<p align=\"center\">✽ &nbsp;&nbsp;&nbsp; ✽ &nbsp;&nbsp;&nbsp; ✽</p>")
             lines.append("")

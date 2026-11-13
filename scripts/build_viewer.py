@@ -2,18 +2,28 @@
 """
 Builds the interactive Book Viewer HTML artifact
 (`matn_abi_shuja_transcripts.html`) directly from:
-  - `/home/antigravity/book_engine/full_book.html` (paginated pages)
+  - `/home/antigravity/book_engine/full_book.html` (paginated pages, incl. Cover & Colophon)
+  - `/home/antigravity/book_engine/cover_front.png` (embedded as crisp JPEG data URI)
   - `/home/antigravity/book_engine/book_data.json` (25 lessons & 167 units)
   - `/home/antigravity/تفريغ_كامل_مجرد_كما_ذكر/*.txt` (raw verbatim transcripts)
+
+Supports 3 reading themes cleanly:
+  1. ورق قديم (`sepia`)
+  2. أبيض كلاسيكي (`white`)
+  3. نسخة لونين — أحمر وأسود (`two-color`)
 """
+import base64
 import glob
+import io
 import json
 import os
 import re
+from PIL import Image
 
 REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 BOOK_HTML_PATH = os.path.join(REPO_ROOT, "book_engine", "full_book.html")
 BOOK_DATA_PATH = os.path.join(REPO_ROOT, "book_engine", "book_data.json")
+COVER_PATH = os.path.join(REPO_ROOT, "book_engine", "cover_front.png")
 RAW_TXT_DIR = os.path.join(REPO_ROOT, "تفريغ_كامل_مجرد_كما_ذكر")
 OUT_HTML = os.path.join(REPO_ROOT, "index.html")
 OUT_VIEWER_COPY = os.path.join(REPO_ROOT, "viewer", "matn_abi_shuja_transcripts.html")
@@ -25,6 +35,16 @@ def to_e(n) -> str:
     return str(n).translate(EDIGITS)
 
 
+def encode_cover_data_uri(img_path: str) -> str:
+    im = Image.open(img_path).convert("RGB")
+    # Crisp 972x1404 (exact 162:234 aspect) JPEG for fast web loading & sharp gold leaf
+    im_resized = im.resize((972, 1404), Image.LANCZOS)
+    buf = io.BytesIO()
+    im_resized.save(buf, format="JPEG", quality=88, optimize=True, progressive=True)
+    b64 = base64.b64encode(buf.getvalue()).decode("ascii")
+    return f"data:image/jpeg;base64,{b64}"
+
+
 with open(BOOK_DATA_PATH, encoding="utf-8") as f:
     book_data = json.load(f)
 
@@ -33,6 +53,9 @@ with open(BOOK_HTML_PATH, encoding="utf-8") as f:
 
 m_root = re.search(r'<div id="book-root">(.*)</div>\s*</body>', full_book_html, flags=re.S)
 book_root_inner = m_root.group(1) if m_root else ""
+
+cover_uri = encode_cover_data_uri(COVER_PATH)
+book_root_inner = book_root_inner.replace(f"file://{COVER_PATH}", cover_uri).replace("file:///home/antigravity/book_engine/cover_front.png", cover_uri)
 
 # Extract page map for exact page discovery
 pg_tokens = re.split(r'<div class="page[^"]*" id="pg-(\d+)"', book_root_inner)[1:]
@@ -65,9 +88,9 @@ for l in book_data["lessons"]:
         if needle in pg_map[pnum]:
             found_pg = pnum
             break
-    lesson_start_pg[l["lesson_num"]] = found_pg if found_pg is not None else 4
+    lesson_start_pg[l["lesson_num"]] = found_pg if found_pg is not None else 5
 
-first_body_pg = lesson_start_pg.get(1, 4)
+first_body_pg = lesson_start_pg.get(1, 5)
 front_end_pg = max(1, first_body_pg - 1)
 
 lessons_meta = []
@@ -122,20 +145,52 @@ viewer_html = f"""<!DOCTYPE html>
   --bg-desk: #e5e0d5;
   --paper-bg: #fffef9;
   --ink: #111111;
+  --accent: #111111;
+  --matn-ink: #111111;
+  --strong-ink: #111111;
+  --ayah-ink: #111111;
+  --rule-ink: #111111;
+  --fn-num-ink: #111111;
+  --subtle-ink: #333333;
   --sidebar-bg: #1c1917;
   --sidebar-text: #f5f5f4;
   --accent-gold: #b45309;
-  --accent-emerald: #065f46;
 }}
 [data-theme="sepia"] {{
   --bg-desk: #d6cbb5;
   --paper-bg: #f8f1e0;
   --ink: #1c1610;
+  --accent: #1c1610;
+  --matn-ink: #1c1610;
+  --strong-ink: #1c1610;
+  --ayah-ink: #1c1610;
+  --rule-ink: #1c1610;
+  --fn-num-ink: #1c1610;
+  --subtle-ink: #3a3026;
 }}
 [data-theme="white"] {{
   --bg-desk: #cbd5e1;
   --paper-bg: #ffffff;
-  --ink: #000000;
+  --ink: #111111;
+  --accent: #111111;
+  --matn-ink: #111111;
+  --strong-ink: #111111;
+  --ayah-ink: #111111;
+  --rule-ink: #111111;
+  --fn-num-ink: #111111;
+  --subtle-ink: #333333;
+}}
+[data-theme="two-color"] {{
+  --bg-desk: #dfe6ee;
+  --paper-bg: #ffffff;
+  --ink: #111111;
+  --accent: #9b111e;
+  --matn-ink: #9b111e;
+  --strong-ink: #9b111e;
+  --ayah-ink: #111111;
+  --rule-ink: #9b111e;
+  --fn-num-ink: #9b111e;
+  --subtle-ink: #333333;
 }}
 
 * {{ box-sizing: border-box; }}
@@ -349,50 +404,133 @@ header.top-bar {{
   border: 1px solid rgba(0,0,0,0.12);
   flex-shrink: 0;
 }}
+.page.cover-page {{
+  padding: 0;
+}}
+.cover-img {{
+  width: 162mm;
+  height: 234mm;
+  display: block;
+  object-fit: cover;
+}}
 .page.framed-page {{
   padding: 12.5mm 14mm;
 }}
 .frame-outer {{
   width: 100%;
   height: 100%;
-  border: 2.2pt solid var(--ink);
+  border: 2.2pt solid var(--accent);
   padding: 2.5pt;
 }}
 .frame-inner {{
   width: 100%;
   height: 100%;
-  border: 0.75pt solid var(--ink);
-  padding: 14mm 10mm 11mm 10mm;
+  border: 0.75pt solid var(--accent);
+  padding: 12mm 10mm 10mm 10mm;
   display: flex;
   flex-direction: column;
   justify-content: space-between;
   align-items: center;
   text-align: center;
 }}
-.disclaimer-box {{
-  border: 1pt solid var(--ink);
-  padding: 6mm 10mm;
-  margin: 4mm auto;
-  width: 86%;
-  font-size: 12.5pt;
+.title-plate-main {{
+  font-size: 24pt;
   font-weight: 700;
-  line-height: 1.9;
+  line-height: 1.85;
+  margin-top: 3mm;
+  color: var(--accent);
+}}
+.title-plate-sub {{
+  font-size: 14pt;
+  margin: 10pt 0 4pt 0;
+  color: var(--ink);
+}}
+.title-plate-desc {{
+  font-size: 17pt;
+  font-weight: 700;
+  line-height: 1.85;
+  margin-top: 8pt;
+  color: var(--ink);
+}}
+.title-plate-author {{
+  font-size: 13.5pt;
+  color: var(--ink);
+}}
+.title-plate-author strong {{
+  color: var(--accent);
+}}
+.title-plate-divider {{
+  font-size: 11.2pt;
+  margin-top: 10pt;
+  border-top: 0.5pt solid var(--rule-ink);
+  padding-top: 8pt;
+}}
+.title-plate-bottom {{
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  font-size: 10.8pt;
+  font-weight: 700;
+  padding: 0 4mm;
+  color: var(--accent);
+}}
+.disclaimer-box {{
+  border: 1pt solid var(--accent);
+  padding: 5mm 9mm;
+  margin: 2mm auto;
+  width: 90%;
+  font-size: 12pt;
+  font-weight: 700;
+  line-height: 1.85;
+  color: var(--ink);
+}}
+.colophon-source-box {{
+  border-top: 0.6pt solid var(--rule-ink);
+  padding-top: 5pt;
+  width: 90%;
+  font-size: 10.2pt;
+  line-height: 1.8;
+}}
+.colophon-source-title {{
+  font-weight: 700;
+  color: var(--accent);
+  font-size: 10.8pt;
+  margin: 1pt 0;
+}}
+.colophon-accent {{
+  color: var(--accent);
+  font-weight: 700;
+}}
+.colophon-foot {{
+  border-top: 0.7pt solid var(--rule-ink);
+  padding-top: 4pt;
+  width: 85%;
+  font-size: 10.5pt;
+  color: var(--accent);
+  font-weight: 700;
+}}
+.basmalah-plate-text {{
+  font-family: 'AmiriQuranFont', 'Amiri Quran', 'AmiriBook', serif;
+  font-size: 26pt;
+  line-height: 2;
+  letter-spacing: 0.3pt;
+  color: var(--accent);
 }}
 .running-header {{
   display: flex;
   justify-content: space-between;
   align-items: baseline;
-  border-bottom: 0.65pt solid var(--ink);
+  border-bottom: 0.65pt solid var(--rule-ink);
   padding-bottom: 3pt;
   margin-bottom: 6pt;
   font-size: 10.5pt;
   line-height: 1.3;
   flex-shrink: 0;
 }}
-.running-header .rh-side {{ width: 18mm; font-weight: 400; }}
+.running-header .rh-side {{ width: 18mm; font-weight: 700; color: var(--accent); }}
 .running-header .rh-right {{ text-align: right; }}
 .running-header .rh-left {{ text-align: left; }}
-.running-header .rh-center {{ flex: 1; text-align: center; font-weight: 400; }}
+.running-header .rh-center {{ flex: 1; text-align: center; font-weight: 400; color: var(--ink); }}
 .body-frame {{
   flex: 1;
   display: flex;
@@ -405,6 +543,7 @@ header.top-bar {{
   font-size: 13.4pt;
   line-height: 1.85;
   flex-shrink: 0;
+  color: var(--matn-ink);
 }}
 .matn-book-title {{
   text-align: center;
@@ -412,6 +551,7 @@ header.top-bar {{
   font-weight: 700;
   line-height: 1.6;
   margin: 0 0 4pt 0;
+  color: var(--accent);
 }}
 .matn-bracket-title {{
   text-align: center;
@@ -419,6 +559,7 @@ header.top-bar {{
   font-weight: 700;
   line-height: 1.55;
   margin: 0 0 4pt 0;
+  color: var(--accent);
 }}
 .matn-p {{
   margin: 0 0 1.5pt 0;
@@ -432,13 +573,14 @@ header.top-bar {{
   font-size: 15.5pt;
   line-height: 1.8;
   margin: 1pt 0 3pt 0;
+  color: var(--matn-ink);
 }}
 .matn-cont-dots {{
   text-align: center;
   font-size: 13.5pt;
   line-height: 1.35;
   letter-spacing: 0.5pt;
-  color: var(--ink);
+  color: var(--accent);
   margin: 1pt 0 3pt 0;
 }}
 .preface-h {{
@@ -447,6 +589,15 @@ header.top-bar {{
   font-weight: 700;
   line-height: 1.65;
   margin: 2pt 0 8pt 0;
+  color: var(--accent);
+}}
+.fn-ref {{
+  font-size: 0.62em;
+  vertical-align: super;
+  line-height: 0;
+  font-weight: 700;
+  margin-right: 1pt;
+  color: var(--fn-num-ink);
 }}
 .stars-row {{
   display: flex;
@@ -455,11 +606,12 @@ header.top-bar {{
   gap: 24pt;
   margin: 4pt 0;
   flex-shrink: 0;
+  color: var(--accent);
 }}
-.star-svg {{ width: 8pt; height: 8pt; display: inline-block; }}
+.star-svg {{ width: 8pt; height: 8pt; display: inline-block; color: var(--accent); }}
 .split-rule {{
   border: none;
-  border-top: 0.75pt solid var(--ink);
+  border-top: 0.75pt solid var(--rule-ink);
   margin: 4pt 0 5.5pt 0;
   flex-shrink: 0;
 }}
@@ -469,6 +621,7 @@ header.top-bar {{
   flex: 1;
   overflow: hidden;
   min-height: 0;
+  color: var(--ink);
 }}
 .sharh-p {{
   margin: 0 0 1.5pt 0;
@@ -477,11 +630,12 @@ header.top-bar {{
   text-indent: 1.4em;
 }}
 .sharh-p.cont {{ text-indent: 0; }}
-.sharh-p strong, .sharh-zone strong {{ font-weight: 700; }}
+.sharh-p strong, .sharh-zone strong {{ font-weight: 700; color: var(--strong-ink); }}
 .ayah {{
   font-family: 'AmiriQuranFont', 'Amiri Quran', 'AmiriBook', serif;
   font-size: 11.5pt;
   line-height: 1.78;
+  color: var(--ayah-ink);
 }}
 .footnote-area {{
   margin-top: auto;
@@ -490,7 +644,7 @@ header.top-bar {{
 }}
 .footnote-rule {{
   width: 34mm;
-  border-top: 0.55pt solid var(--ink);
+  border-top: 0.55pt solid var(--rule-ink);
   margin-bottom: 2.5pt;
 }}
 .footnote-text {{
@@ -498,8 +652,21 @@ header.top-bar {{
   line-height: 1.55;
   color: var(--ink);
 }}
-.toc-row a, .toc-book-row a, .ayah-idx-pages a {{
+.fn-lesson-note {{
+  color: var(--subtle-ink);
+  font-size: 8.4pt;
+  margin-bottom: 1pt;
+}}
+.fn-gloss-row {{ margin-top: 0.5pt; }}
+.fn-gloss-num {{ font-weight: 700; color: var(--fn-num-ink); }}
+.fn-gloss-term {{ font-weight: 700; color: var(--ink); }}
+
+.toc-row a, .ayah-idx-pages a {{
   color: var(--ink);
+  text-decoration: none;
+}}
+.toc-book-row a {{
+  color: var(--accent);
   text-decoration: none;
 }}
 .toc-page-title {{
@@ -507,6 +674,7 @@ header.top-bar {{
   font-size: 17pt;
   font-weight: 700;
   margin: 2pt 0 7pt 0;
+  color: var(--accent);
 }}
 .toc-two-col {{
   display: flex;
@@ -524,7 +692,7 @@ header.top-bar {{
 }}
 .toc-col-right {{
   padding-left: 5.5mm;
-  border-left: 0.6pt solid var(--ink);
+  border-left: 0.6pt solid var(--rule-ink);
 }}
 .toc-col-left {{ padding-right: 5.5mm; }}
 .toc-book-row {{
@@ -534,6 +702,7 @@ header.top-bar {{
   line-height: 1.5;
   display: flex;
   align-items: baseline;
+  color: var(--accent);
 }}
 .toc-book-label {{ padding-right: 10pt; white-space: nowrap; }}
 .toc-row {{
@@ -546,25 +715,27 @@ header.top-bar {{
 .toc-row-title {{ white-space: normal; max-width: 85%; }}
 .toc-dots {{
   flex: 1;
-  border-bottom: 1pt dotted #333;
+  border-bottom: 1pt dotted #555;
   margin: 0 3pt 3pt 3pt;
   min-width: 8pt;
 }}
-.toc-pg {{ font-size: 9pt; white-space: nowrap; }}
+.toc-pg {{ font-size: 9pt; white-space: nowrap; color: var(--accent); font-weight: 700; }}
 .toc-section-center {{
   text-align: center;
   font-size: 11pt;
   font-weight: 700;
   margin: 5pt 0 2pt 0;
+  color: var(--accent);
 }}
 .index-col-head {{
   display: flex;
   justify-content: space-between;
   font-size: 10.2pt;
   font-weight: 700;
-  border-bottom: 0.6pt solid var(--ink);
+  border-bottom: 0.6pt solid var(--rule-ink);
   padding-bottom: 2pt;
   margin-bottom: 4pt;
+  color: var(--accent);
 }}
 .ayah-idx-row {{
   display: flex;
@@ -579,12 +750,15 @@ header.top-bar {{
   font-family: 'AmiriQuranFont', 'Amiri Quran', 'AmiriBook', serif;
   flex: 1;
   padding-left: 6pt;
+  color: var(--ink);
 }}
 .ayah-idx-pages {{
   white-space: nowrap;
   font-size: 9.8pt;
   min-width: 14mm;
   text-align: left;
+  color: var(--accent);
+  font-weight: 700;
 }}
 
 /* Verbatim Raw Box */
@@ -622,7 +796,7 @@ header.top-bar {{
 }}
 </style>
 </head>
-<body data-theme="sepia">
+<body data-theme="two-color">
 
 <aside id="sidebar">
   <div class="sb-head">
@@ -647,7 +821,7 @@ header.top-bar {{
     <div class="tb-left">
       <span style="font-size:0.8rem;">انتقل لصفحة:</span>
       <input type="number" min="1" max="{TOTAL_PAGES}" value="1" id="pgJump" class="pg-jump-input" onchange="jumpToPage(this.value)">
-      <button class="tb-btn" onclick="cyclePaperTheme()">🎨 لون الورق</button>
+      <button class="tb-btn" id="btnTheme" onclick="cyclePaperTheme()">🎨 نسخة لونين</button>
       <button class="tb-btn" onclick="window.print()">🖨️ طباعة / PDF</button>
     </div>
   </header>
@@ -669,7 +843,7 @@ const INDEXES_START_PG = {indexes_start_pg};
 const EDIGITS = '٠١٢٣٤٥٦٧٨٩';
 const toE = (n) => String(n).replace(/[0-9]/g, d => EDIGITS[+d]);
 
-let activeLessonIdx = -1; // -1 = full book mode
+let activeLessonIdx = -1;
 let isRawMode = false;
 let isVideoOpen = false;
 
@@ -810,14 +984,18 @@ function toggleVideo() {{
   }}
 }}
 
-const themes = ['sepia', 'white'];
+const themes = [
+  {{ key: 'two-color', label: '🎨 نسخة لونين' }},
+  {{ key: 'white',     label: '🎨 أبيض كلاسيكي' }},
+  {{ key: 'sepia',     label: '🎨 ورق قديم' }},
+];
 let tIdx = 0;
 function cyclePaperTheme() {{
   tIdx = (tIdx + 1) % themes.length;
-  document.body.setAttribute('data-theme', themes[tIdx]);
+  document.body.setAttribute('data-theme', themes[tIdx].key);
+  document.getElementById('btnTheme').textContent = themes[tIdx].label;
 }}
 
-// Intercept internal #pg-N and #unit-... links
 document.getElementById('book-root').addEventListener('click', (e) => {{
   const a = e.target.closest('a[href^="#"]');
   if (!a) return;
@@ -848,13 +1026,12 @@ buildSidebar();
 </html>
 """
 
-os.makedirs(os.path.dirname(OUT_VIEWER_COPY), exist_ok=True)
-with open(OUT_HTML, "w", encoding="utf-8") as out_f:
-    out_f.write(viewer_html)
-with open(OUT_VIEWER_COPY, "w", encoding="utf-8") as out_v:
-    out_v.write(viewer_html)
+for target in (OUT_HTML, OUT_VIEWER_COPY):
+    os.makedirs(os.path.dirname(target), exist_ok=True)
+    with open(target, "w", encoding="utf-8") as out_f:
+        out_f.write(viewer_html)
 
 print(
     f"Successfully wrote interactive viewer ({len(viewer_html):,} bytes, {TOTAL_PAGES} pages, "
-    f"indexes={indexes_start_pg}..{TOTAL_PAGES}) to {OUT_HTML} & {OUT_VIEWER_COPY}"
+    f"indexes={indexes_start_pg}..{TOTAL_PAGES}, front=1..{front_end_pg}) to {OUT_HTML}"
 )

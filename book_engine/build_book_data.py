@@ -112,8 +112,10 @@ def parse_clean_file(path: str, lesson_num: int):
     return units
 
 def main():
-    os.makedirs('/home/antigravity/book_engine', exist_ok=True)
-    playlist_path = '/home/antigravity/playlist_info.json'
+    repo_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    engine_dir = os.path.dirname(os.path.abspath(__file__))
+    os.makedirs(engine_dir, exist_ok=True)
+    playlist_path = os.path.join(repo_root, 'playlist_info.json') if os.path.exists(os.path.join(repo_root, 'playlist_info.json')) else '/home/antigravity/playlist_info.json'
     playlist_meta = {}
     if os.path.exists(playlist_path):
         pl = json.load(open(playlist_path, encoding='utf-8'))
@@ -128,7 +130,12 @@ def main():
                     'yt_title': e.get('title', ''),
                 }
 
-    files = sorted(glob.glob('/home/antigravity/clean_lessons/L*.txt'))
+    glossary_path = os.path.join(engine_dir, 'glossary_data.json')
+    glossary_meta = {'source_credit': '', 'by_unit': {}, 'count': 0}
+    if os.path.exists(glossary_path):
+        glossary_meta = json.load(open(glossary_path, encoding='utf-8'))
+
+    files = sorted(glob.glob(os.path.join(repo_root, 'clean_lessons', 'L*.txt')))
     all_units = []
     lessons_summary = []
     for f in files:
@@ -137,6 +144,8 @@ def main():
             continue
         lnum = int(m.group(1))
         units = parse_clean_file(f, lnum)
+        for u in units:
+            u['glosses'] = glossary_meta.get('by_unit', {}).get(u['id'], [])
         word_cnt = sum(len(re.sub(r'<[^>]+>', '', p).split()) for u in units for p in u['sharh_paras_html'])
         pinfo = playlist_meta.get(lnum, {'vid': '', 'url': '', 'duration_min': 0, 'yt_title': f'الدرس {lnum}'})
         first_note = next((u['lesson_note'] for u in units if u['lesson_note']), f'اللقاء {to_eastern(lnum)}')
@@ -156,11 +165,13 @@ def main():
     out_path = sys.argv[1] if len(sys.argv) > 1 else '/tmp/book_data.json'
     with open(out_path, 'w', encoding='utf-8') as out:
         json.dump({
+            'glossary_source': glossary_meta.get('source_credit', ''),
+            'glossary_count': glossary_meta.get('count', 0),
             'lessons': lessons_summary,
             'units': all_units,
             'total_words': sum(l['word_count'] for l in lessons_summary),
         }, out, ensure_ascii=False, indent=2)
-    print(f"Built {out_path}: {len(lessons_summary)} lessons, {len(all_units)} clause units, {sum(l['word_count'] for l in lessons_summary)} Sharh words.")
+    print(f"Built {out_path}: {len(lessons_summary)} lessons, {len(all_units)} clause units, {sum(l['word_count'] for l in lessons_summary)} Sharh words, {glossary_meta.get('count', 0)} curated glosses.")
 
 if __name__ == '__main__':
     main()
