@@ -112,6 +112,14 @@ def parse_clean_file(path: str, lesson_num: int):
     return units
 
 def main():
+    import argparse
+    parser = argparse.ArgumentParser()
+    parser.add_argument('out_pos', nargs='?', default=None)
+    parser.add_argument('--mode', choices=('verbatim', 'edited'), default='verbatim')
+    parser.add_argument('--input-dir', default=None)
+    parser.add_argument('--out', default=None)
+    args = parser.parse_args()
+
     repo_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     engine_dir = os.path.dirname(os.path.abspath(__file__))
     os.makedirs(engine_dir, exist_ok=True)
@@ -135,7 +143,8 @@ def main():
     if os.path.exists(glossary_path):
         glossary_meta = json.load(open(glossary_path, encoding='utf-8'))
 
-    files = sorted(glob.glob(os.path.join(repo_root, 'clean_lessons', 'L*.txt')))
+    in_dir = args.input_dir or os.path.join(repo_root, 'edited_lessons' if args.mode == 'edited' else 'clean_lessons')
+    files = sorted(glob.glob(os.path.join(in_dir, 'L*.txt')))
     all_units = []
     lessons_summary = []
     for f in files:
@@ -162,16 +171,17 @@ def main():
         })
         all_units.extend(units)
 
-    out_path = sys.argv[1] if len(sys.argv) > 1 else '/tmp/book_data.json'
+    out_path = args.out or args.out_pos or (os.path.join(engine_dir, 'book_data_edited.json') if args.mode == 'edited' else '/tmp/book_data.json')
     with open(out_path, 'w', encoding='utf-8') as out:
         json.dump({
+            'mode': args.mode,
             'glossary_source': glossary_meta.get('source_credit', ''),
             'glossary_count': glossary_meta.get('count', 0),
             'lessons': lessons_summary,
             'units': all_units,
             'total_words': sum(l['word_count'] for l in lessons_summary),
         }, out, ensure_ascii=False, indent=2)
-    print(f"Built {out_path}: {len(lessons_summary)} lessons, {len(all_units)} clause units, {sum(l['word_count'] for l in lessons_summary)} Sharh words, {glossary_meta.get('count', 0)} curated glosses.")
+    print(f"Built {out_path} ({args.mode}): {len(lessons_summary)} lessons, {len(all_units)} clause units, {sum(l['word_count'] for l in lessons_summary)} Sharh words, {glossary_meta.get('count', 0)} curated glosses.")
 
 if __name__ == '__main__':
     main()

@@ -35,6 +35,14 @@ OUT_PATHS = {
     "classic": os.path.join(_REPO, "تيسير_الانتفاع_بشرح_مختصر_أبي_شجاع", "تيسير_الانتفاع_بشرح_مختصر_أبي_شجاع.docx"),
     "two-color": os.path.join(_REPO, "تيسير_الانتفاع_بشرح_مختصر_أبي_شجاع", "تيسير_الانتفاع_بشرح_مختصر_أبي_شجاع_نسخة_لونين.docx"),
 }
+EDITED_ASSETS_HTML = {
+    "classic": os.path.join(_ENG, "full_book_edited.html"),
+    "two-color": os.path.join(_ENG, "full_book_edited_two_color.html"),
+}
+EDITED_OUT_PATHS = {
+    "classic": os.path.join(_REPO, "تيسير_الانتفاع_بشرح_مختصر_أبي_شجاع_النسخة_المحررة", "تيسير_الانتفاع_بشرح_مختصر_أبي_شجاع_النسخة_المحررة.docx"),
+    "two-color": os.path.join(_REPO, "تيسير_الانتفاع_بشرح_مختصر_أبي_شجاع_النسخة_المحررة", "تيسير_الانتفاع_بشرح_مختصر_أبي_شجاع_النسخة_المحررة_نسخة_لونين.docx"),
+}
 
 EDIGITS = str.maketrans("0123456789", "٠١٢٣٤٥٦٧٨٩")
 
@@ -556,10 +564,11 @@ def build_framed_table(doc, pal: dict, height_mm: float = 204.0):
     return cell
 
 
-def build_docx(edition: str):
-    in_html = ASSETS_HTML[edition]
-    out_docx = OUT_PATHS[edition]
+def build_docx(edition: str, mode: str = "verbatim"):
+    in_html = (EDITED_ASSETS_HTML if mode == "edited" else ASSETS_HTML)[edition]
+    out_docx = (EDITED_OUT_PATHS if mode == "edited" else OUT_PATHS)[edition]
     pal = get_palette(edition)
+    is_edited = (mode == "edited")
 
     raw_html = open(in_html, encoding="utf-8").read()
     tree = lhtml.fromstring(raw_html)
@@ -629,7 +638,12 @@ def build_docx(edition: str):
 
     p3 = c2.add_paragraph()
     set_para_rtl(p3, align=WD_ALIGN_PARAGRAPH.CENTER, line_pt=28, sb_pt=4, sa_pt=20)
-    add_run(p3, "التَّفْرِيغُ الْحَرْفِيُّ الْكَامِلُ لِدُرُوسِ شَرْحِ مَتْنِ أَبِي شُجَاعٍ", 16.5, pal["ink"], bold=True)
+    add_run(
+        p3,
+        "النُّسْخَةُ الْمُحَرَّرَةُ الْمُصَاغَةُ بِالْعَرَبِيَّةِ الْفُصْحَى عَلَى نَسَقِ الْكُتُبِ الْفِقْهِيَّةِ" if is_edited
+        else "التَّفْرِيغُ الْحَرْفِيُّ الْكَامِلُ لِدُرُوسِ شَرْحِ مَتْنِ أَبِي شُجَاعٍ",
+        16.5, pal["ink"], bold=True
+    )
 
     p4 = c2.add_paragraph()
     set_para_rtl(p4, align=WD_ALIGN_PARAGRAPH.CENTER, line_pt=24, sb_pt=10, sa_pt=2)
@@ -644,7 +658,12 @@ def build_docx(edition: str):
 
     p6 = c2.add_paragraph()
     set_para_rtl(p6, align=WD_ALIGN_PARAGRAPH.CENTER, line_pt=18, sb_pt=14, sa_pt=0)
-    add_run(p6, "كِتَابُ الطَّهَارَةِ وَكِتَابُ الصَّلاَةِ     •     ٢٥ لِقَاءً صَوْتِيًّا كَامِلاً", 10.5, pal["accent"], bold=True)
+    add_run(
+        p6,
+        "كِتَابُ الطَّهَارَةِ وَكِتَابُ الصَّلاَةِ     •     طَبْعَةٌ مُحَرَّرَةٌ مُهَذَّبَةٌ" if is_edited
+        else "كِتَابُ الطَّهَارَةِ وَكِتَابُ الصَّلاَةِ     •     ٢٥ لِقَاءً صَوْتِيًّا كَامِلاً",
+        10.5, pal["accent"], bold=True
+    )
 
     # Page Break to pg-3
     p_brk3 = doc.add_paragraph()
@@ -656,14 +675,20 @@ def build_docx(edition: str):
     set_para_rtl(p, align=WD_ALIGN_PARAGRAPH.CENTER, line_pt=24, sb_pt=2, sa_pt=6)
     bm.add_bookmark(p, "pg-3")
     add_run(p, "تَيْسِيرُ الانْتِفَاعِ بِشَرْحِ مُخْتَصَرِ أَبِي شُجَاعٍ\n", 14.5, pal["accent"], bold=True)
-    add_run(p, "تَفْرِيغٌ حَرْفِيٌّ كَامِلٌ مُرَاجَعٌ لِدُرُوسِ السِّلْسِلَةِ الْفِقْهِيَّةِ الشَّافِعِيَّةِ\n", 11.0, pal["ink"])
-    add_run(p, "( اللِّقَاءَاتُ : ١ – ٢٥ )", 10.5, pal["ink"])
+    if is_edited:
+        add_run(p, "نُسْخَةٌ مُحَرَّرَةٌ مُهَذَّبَةٌ لِشَرْحِ السِّلْسِلَةِ الْفِقْهِيَّةِ الشَّافِعِيَّةِ\n", 11.0, pal["ink"])
+        add_run(p, "( مُحَرَّرَةٌ عَلَى نَسَقِ الْكُتُبِ الْفِقْهِيَّةِ )", 10.5, pal["ink"])
+    else:
+        add_run(p, "تَفْرِيغٌ حَرْفِيٌّ كَامِلٌ مُرَاجَعٌ لِدُرُوسِ السِّلْسِلَةِ الْفِقْهِيَّةِ الشَّافِعِيَّةِ\n", 11.0, pal["ink"])
+        add_run(p, "( اللِّقَاءَاتُ : ١ – ٢٥ )", 10.5, pal["ink"])
 
     p_box = c3.add_paragraph()
     set_para_rtl(p_box, align=WD_ALIGN_PARAGRAPH.CENTER, line_pt=20.5, sb_pt=5, sa_pt=8)
     set_para_box_border(p_box, pal["accent"], sz_eighths=8, space_pt=7, ind_lr_mm=5.0)
     add_run(
         p_box,
+        "أُعِدَّتْ هَذِهِ النُّسْخَةُ بِتَحْرِيرِ كَلاَمِ الشَّيْخِ الشَّارِحِ بِالْعَرَبِيَّةِ الْفُصْحَى الْمُيَسَّرَةِ، وَتَنْقِيَتِهِ مِنَ الْعَامِّيَّةِ وَفَوَاتِحِ الدُّرُوسِ وَخَوَاتِمِهَا وَأَسْئِلَةِ الْحُضُورِ، مَعَ الأَمَانَةِ التَّامَّةِ فِي حِفْظِ الْمَعَانِي وَالأَحْكَامِ دُونَ تَغْيِيرٍ أَوْ زِيَادَةٍ."
+        if is_edited else
         "أُعِدَّ هَذَا الْكِتَابُ بِإِثْبَاتِ كَلاَمِ الشَّيْخِ الشَّارِحِ كَامِلاً كَمَا أُلْقِيَ دُونَ حَذْفٍ أَوْ اخْتِصَارٍ ،\n"
         "مَعَ إِثْبَاتِ مَتْنِ أَبِي شُجَاعٍ مَضْبُوطاً بِالشَّكْلِ أَعْلَى الصَّفْحَةِ مَفْصُولاً بِخَطٍّ أُفُقِيٍّ عَنِ الشَّرْحِ أَسْفَلَهُ",
         11.5, pal["ink"], bold=True
@@ -688,7 +713,13 @@ def build_docx(edition: str):
     add_run(p_sym, "رُمُوزُ الضَّبْطِ وَالتَّنْسِيقِ :\n", 10.0, pal["accent"], bold=True)
     add_run(p_sym, "الْخَطُّ الْعَرِيضُ دَاخِلَ الشَّرْحِ", 9.5, pal["strong_ink"], bold=True)
     add_run(p_sym, " يُمَيِّزُ أَلْفَاظَ الْمَتْنِ الَّتِي يَسْتَشْهِدُ بِهَا الشَّارِحُ\n", 9.5, pal["ink"])
-    add_run(p_sym, "﴿ ... ﴾ لِلآيَاتِ الْقُرْآنِيَّةِ  •  « ... » لِلأَحَادِيثِ  •  (١) لِغَرِيبِ الْمَتْنِ  •  (*) لِبَيَانِ اللِّقَاءِ الصَّوْتِيِّ", 9.5, pal["ink"])
+    add_run(
+        p_sym,
+        "﴿ ... ﴾ لِلآيَاتِ الْقُرْآنِيَّةِ  •  « ... » لِلأَحَادِيثِ  •  (١) لِغَرِيبِ الْمَتْنِ"
+        if is_edited else
+        "﴿ ... ﴾ لِلآيَاتِ الْقُرْآنِيَّةِ  •  « ... » لِلأَحَادِيثِ  •  (١) لِغَرِيبِ الْمَتْنِ  •  (*) لِبَيَانِ اللِّقَاءِ الصَّوْتِيِّ",
+        9.5, pal["ink"]
+    )
 
     p_cf = c3.add_paragraph()
     set_para_rtl(p_cf, align=WD_ALIGN_PARAGRAPH.CENTER, line_pt=17.5, sb_pt=6, sa_pt=0)
@@ -1031,10 +1062,11 @@ def build_docx(edition: str):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--edition", choices=("classic", "two-color", "all"), default="all")
+    parser.add_argument("--mode", choices=("verbatim", "edited"), default="verbatim")
     args = parser.parse_args()
     editions = ("classic", "two-color") if args.edition == "all" else (args.edition,)
     for ed in editions:
-        build_docx(ed)
+        build_docx(ed, mode=args.mode)
 
 
 if __name__ == "__main__":

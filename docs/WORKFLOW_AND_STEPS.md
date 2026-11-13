@@ -53,15 +53,26 @@
    - إنتاج [`تيسير_الانتفاع_بشرح_مختصر_أبي_شجاع_نسخة_لونين.pdf`](../تيسير_الانتفاع_بشرح_مختصر_أبي_شجاع/تيسير_الانتفاع_بشرح_مختصر_أبي_شجاع_نسخة_لونين.pdf) بمطابقة تامة (`351 == 351` صفحة).
    - بناء ملفات `.docx` لكلا الإصدارين بمقاس **`162mm × 234mm`** (`9184×13266 twips`) وبنية OOXML RTL مطابقة لمعيار ECMA-376 (`346` فاصل `pageBreakBefore` + `5` فواصل أقسام = `351` صفحة منطقية مطابقة).
 
+### ج. مرحلة التحرير الفقهي والأدبي للكتاب بالعربية الفصحى (`v3.2.0` — `318` صفحة)
+1. **إعداد [`edited_lessons/L01.txt`](../edited_lessons/L01.txt) .. [`L25.txt`](../edited_lessons/L25.txt) (`165` وحدة متنية — `80,295` كلمة شرح)**:
+   - إزالة فواتح الدروس الترحيبية وخواتيمها وملاحظات الإلقاء الصوتي وأسئلة الحضور الحية (`L01_U08` و`L01_U09`) وإصلاح مواضع انقطاع الصوت (`L19`، `L23`).
+   - تحويل العامية المصرية والاستدراكات الشفوية إلى عربية فصحى ميسرة على نسق الكتب الفقهية دون أي حذف للمسائل أو الشروط أو الأمثلة ودون زيادة أحكام خارجية.
+   - افتتاح مقدمة الكتاب ببسملة وحمدلة (`ص ٥`) وختام الكتاب بدعاء ختامي لائق (`ص ٣١٣`).
+2. **التدقيق البرمجي لسلامة التحرير (`scripts/verify_edited.py`)**:
+   - فحص جميع الوحدات الـ `165` للتحقق من: تطابق عناوين المتن والفصول (`TOC_BOOK`، `TOC_FASL`، `MATN`، `FASL_END`) حرفياً، تطابق الآيات القرآنية `﴿...﴾` بنسبة `100%`، خلو النصوص من العامية واللواحق الصوتية والألفاظ الممنوعة والحروف اللاتينية -> اجتياز **`25/25 PASS`**.
+3. **إخراج النسخة المحررة بالصيغ الخمس (`318` صفحة مطابقة)**:
+   - نسختا `PDF` الكلاسيكية وذات اللونين (`318 == 318` ص، انعدام الصفحات فارغة الشرح)، نسختا `.docx` القابلتان للتعديل (`318` صفحة منطقية)، `28` ملف `Markdown`، والقارئ التفاعلي [`viewer/matn_abi_shuja_edited.html`](../viewer/matn_abi_shuja_edited.html).
+
 ---
 
 ## ثالثاً: البنية الهندسية لمحرك الصفّ والإخراج (`book_engine/` و`scripts/`)
 
-1. **[`book_engine/build_book_data.py`](../book_engine/build_book_data.py)**: يقرأ `clean_lessons/L01.txt`..`L25.txt` ويدمج `glossary_data.json` لإنتاج `book_data.json`.
+1. **[`book_engine/build_book_data.py`](../book_engine/build_book_data.py)**: يقرأ `clean_lessons` (`--mode verbatim`) أو `edited_lessons` (`--mode edited`) لإنتاج `book_data.json` / `book_data_edited.json`.
 2. **[`book_engine/curate_glossary.py`](../book_engine/curate_glossary.py)**: ينتج قاعدة حواشي غريب المتن المنتقاة (`glossary_data.json` — `31` حاشية على `15` وحدة).
 3. **[`book_engine/template_book.html`](../book_engine/template_book.html)**: قالب CSS الطباعي بمقاس `162mm × 234mm` لنسختَي الكلاسيك واللونين (`body.edition-two-color`).
-4. **[`book_engine/render_book.mjs`](../book_engine/render_book.mjs)**: محرك Chromium CDP للتقسيم الآلي إلى `351` صفحة وإخراج `PDF` و`full_book.html` / `full_book_two_color.html`.
-5. **[`book_engine/build_docx.py`](../book_engine/build_docx.py)**: محرك توليد ملفات `.docx` القابلة للتعديل والمطابقة للصفحات الـ `351`.
-6. **[`book_engine/update_markdown_books.py`](../book_engine/update_markdown_books.py)**: تحديث ملفات الماركداون الـ `25` والمجلدات الثلاثة مع حواشي غريب المتن وذكر المرجع.
-7. **[`scripts/build_viewer.py`](../scripts/build_viewer.py)**: توليد القارئ التفاعلي [`index.html`](../index.html) مع دعم التبديل الفوري بين **نسخة لونين / أبيض كلاسيكي / ورق قديم**.
-8. **[`scripts/update_gdocs_fath.py`](../scripts/update_gdocs_fath.py)**: مزامنة مستندات Google Docs الثلاثة بالحواشي ومرجع *الأنوار على غاية الاختصار* واتجاه `RIGHT_TO_LEFT`.
+4. **[`book_engine/render_book.mjs`](../book_engine/render_book.mjs)**: محرك Chromium CDP للتقسيم الآلي وإخراج `PDF` و`HTML` (`351` ص للحرفية، `318` ص للمحررة).
+5. **[`book_engine/build_docx.py`](../book_engine/build_docx.py)**: محرك توليد ملفات `.docx` القابلة للتعديل لكلا الإصدارين (`--mode verbatim` / `--mode edited`).
+6. **[`book_engine/update_markdown_books.py`](../book_engine/update_markdown_books.py)**: تحديث ملفات الماركداون الـ `25` والمجلدات الثلاثة لكلا الإصدارين.
+7. **[`scripts/verify_edited.py`](../scripts/verify_edited.py) و[`scripts/verify_verbatim.py`](../scripts/verify_verbatim.py)**: التحقق الآلي لسلامة كلتا النسختين (`25/25 PASS`).
+8. **[`scripts/build_viewer.py`](../scripts/build_viewer.py)**: توليد القارئ التفاعلي للنسخة الحرفية (`index.html`) والمحررة (`--mode edited` -> `viewer/matn_abi_shuja_edited.html`).
+9. **[`scripts/update_gdocs_fath.py`](../scripts/update_gdocs_fath.py)**: مزامنة مستندات Google Docs الثلاثة بالحواشي ومرجع *الأنوار على غاية الاختصار* واتجاه `RIGHT_TO_LEFT`.

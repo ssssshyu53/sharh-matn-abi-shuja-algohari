@@ -12,6 +12,7 @@ Supports 3 reading themes cleanly:
   2. أبيض كلاسيكي (`white`)
   3. نسخة لونين — أحمر وأسود (`two-color`)
 """
+import argparse
 import base64
 import glob
 import io
@@ -20,13 +21,18 @@ import os
 import re
 from PIL import Image
 
+_PARSER = argparse.ArgumentParser()
+_PARSER.add_argument("--mode", choices=("verbatim", "edited"), default="verbatim")
+_ARGS, _ = _PARSER.parse_known_args()
+IS_EDITED = (_ARGS.mode == "edited")
+
 REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-BOOK_HTML_PATH = os.path.join(REPO_ROOT, "book_engine", "full_book.html")
-BOOK_DATA_PATH = os.path.join(REPO_ROOT, "book_engine", "book_data.json")
+BOOK_HTML_PATH = os.path.join(REPO_ROOT, "book_engine", "full_book_edited.html" if IS_EDITED else "full_book.html")
+BOOK_DATA_PATH = os.path.join(REPO_ROOT, "book_engine", "book_data_edited.json" if IS_EDITED else "book_data.json")
 COVER_PATH = os.path.join(REPO_ROOT, "book_engine", "cover_front.png")
 RAW_TXT_DIR = os.path.join(REPO_ROOT, "تفريغ_كامل_مجرد_كما_ذكر")
-OUT_HTML = os.path.join(REPO_ROOT, "index.html")
-OUT_VIEWER_COPY = os.path.join(REPO_ROOT, "viewer", "matn_abi_shuja_transcripts.html")
+OUT_HTML = None if IS_EDITED else os.path.join(REPO_ROOT, "index.html")
+OUT_VIEWER_COPY = os.path.join(REPO_ROOT, "viewer", "matn_abi_shuja_edited.html" if IS_EDITED else "matn_abi_shuja_transcripts.html")
 
 EDIGITS = str.maketrans("0123456789", "٠١٢٣٤٥٦٧٨٩")
 
@@ -68,13 +74,27 @@ for pnum in sorted(pg_map.keys()):
         indexes_start_pg = pnum
         break
 
-# Extract raw verbatim text for each lesson
+# Extract continuous text for each lesson
 raw_by_lesson = {}
-for lnum in range(1, 26):
-    matches = sorted(glob.glob(f"{RAW_TXT_DIR}/{lnum:02d}_*.txt"))
-    if matches:
-        with open(matches[0], encoding="utf-8") as rf:
-            raw_by_lesson[lnum] = rf.read()
+if IS_EDITED:
+    for u in book_data.get("units", []):
+        lnum = u["lesson_num"]
+        parts = []
+        if u.get("heading"):
+            parts.append(u["heading"])
+        if u.get("matn_raw"):
+            parts.append(u["matn_raw"])
+        for ph in u.get("sharh_paras_html", []):
+            txt = re.sub(r"<[^>]+>", "", ph).replace("&quot;", '"').replace("&amp;", "&").replace("&lt;", "<").replace("&gt;", ">")
+            parts.append(txt)
+        raw_by_lesson.setdefault(lnum, []).append("\n\n".join(parts))
+    raw_by_lesson = {k: "\n\n━━━━━━━━━━\n\n".join(v) for k, v in raw_by_lesson.items()}
+else:
+    for lnum in range(1, 26):
+        matches = sorted(glob.glob(f"{RAW_TXT_DIR}/{lnum:02d}_*.txt"))
+        if matches:
+            with open(matches[0], encoding="utf-8") as rf:
+                raw_by_lesson[lnum] = rf.read()
 
 # Find which page each lesson starts on inside pg_map
 lesson_start_pg = {}
@@ -800,7 +820,7 @@ header.top-bar {{
 
 <aside id="sidebar">
   <div class="sb-head">
-    <div class="sb-title">تَيْسِيرُ الانْتِفَاعِ بِشَرْحِ مُخْتَصَرِ أَبِي شُجَاعٍ</div>
+    <div class="sb-title">تَيْسِيرُ الانْتِفَاعِ بِشَرْحِ مُخْتَصَرِ أَبِي شُجَاعٍ{' — النُّسْخَةُ الْمُحَرَّرَةُ' if IS_EDITED else ''}</div>
     <div class="sb-sub">لِفَضِيلَةِ الشَّيْخِ أَحْمَدَ الْجَوْهَرِيِّ ({to_e(TOTAL_PAGES)} صَفْحَةً)</div>
   </div>
   <div class="sb-search">
@@ -815,7 +835,7 @@ header.top-bar {{
       <button class="tb-btn active" id="btnAllPages" onclick="showAllBookPages()">📚 عَرْضُ الْكِتَابِ كَامِلاً ({to_e(TOTAL_PAGES)} ص)</button>
       <button class="tb-btn" id="btnFront" onclick="showPageRange(1, {front_end_pg}, 'الغلاف والافتتاحية')">📜 الغلاف والافتتاحية</button>
       <button class="tb-btn" id="btnIndexes" onclick="showPageRange({indexes_start_pg}, {TOTAL_PAGES}, 'فهرس الآيات والفهرس العام')">🗂️ الفهارس العامة</button>
-      <button class="tb-btn" id="btnRawMode" onclick="toggleRawVerbatim()">📝 النص الحرفي الخام للدرس</button>
+      <button class="tb-btn" id="btnRawMode" onclick="toggleRawVerbatim()">{'📝 النص المتصل المحرر للباب' if IS_EDITED else '📝 النص الحرفي الخام للدرس'}</button>
       <button class="tb-btn" id="btnVideo" onclick="toggleVideo()" style="display:none;">🎥 التسجيل الصوتي/المرئي</button>
     </div>
     <div class="tb-left">
@@ -840,6 +860,7 @@ const LESSONS = {meta_json};
 const TOTAL_PAGES = {TOTAL_PAGES};
 const FRONT_END_PG = {front_end_pg};
 const INDEXES_START_PG = {indexes_start_pg};
+const RAW_BTN_IDLE_LABEL = {'"📝 النص المتصل المحرر للباب"' if IS_EDITED else '"📝 النص الحرفي الخام للدرس"'};
 const EDIGITS = '٠١٢٣٤٥٦٧٨٩';
 const toE = (n) => String(n).replace(/[0-9]/g, d => EDIGITS[+d]);
 
@@ -964,7 +985,7 @@ function updateRawModeUI() {{
     vPanel.style.display = 'none';
     bookRoot.style.display = 'flex';
     btn.classList.remove('active');
-    btn.textContent = '📝 النص الحرفي الخام للدرس';
+    btn.textContent = RAW_BTN_IDLE_LABEL;
   }}
 }}
 
@@ -1026,12 +1047,16 @@ buildSidebar();
 </html>
 """
 
+written_targets = []
 for target in (OUT_HTML, OUT_VIEWER_COPY):
+    if not target:
+        continue
     os.makedirs(os.path.dirname(target), exist_ok=True)
     with open(target, "w", encoding="utf-8") as out_f:
         out_f.write(viewer_html)
+    written_targets.append(target)
 
 print(
     f"Successfully wrote interactive viewer ({len(viewer_html):,} bytes, {TOTAL_PAGES} pages, "
-    f"indexes={indexes_start_pg}..{TOTAL_PAGES}, front=1..{front_end_pg}) to {OUT_HTML}"
+    f"indexes={indexes_start_pg}..{TOTAL_PAGES}, front=1..{front_end_pg}) to {', '.join(written_targets)}"
 )

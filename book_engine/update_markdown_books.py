@@ -1,15 +1,22 @@
+import argparse
 import json
 import os
 import re
 import shutil
 
+_PARSER = argparse.ArgumentParser()
+_PARSER.add_argument('--mode', choices=('verbatim', 'edited'), default='verbatim')
+_ARGS, _ = _PARSER.parse_known_args()
+IS_EDITED = (_ARGS.mode == 'edited')
+
 _ENG = os.path.dirname(os.path.abspath(__file__))
 _REPO = os.path.dirname(_ENG)
-out_dir = os.path.join(_REPO, 'تيسير_الانتفاع_بشرح_مختصر_أبي_شجاع')
+out_dir = os.path.join(_REPO, 'تيسير_الانتفاع_بشرح_مختصر_أبي_شجاع_النسخة_المحررة' if IS_EDITED else 'تيسير_الانتفاع_بشرح_مختصر_أبي_شجاع')
 old_out_dir = os.path.join(_REPO, 'شرح_أبي_شجاع_على_نسق_فتح_القريب_المجيب')
 legacy_md_dir = os.path.join(_REPO, 'تفريغ_شرح_متن_أبي_شجاع')
 os.makedirs(out_dir, exist_ok=True)
-os.makedirs(legacy_md_dir, exist_ok=True)
+if not IS_EDITED:
+    os.makedirs(legacy_md_dir, exist_ok=True)
 
 EDIGITS = str.maketrans('0123456789', '٠١٢٣٤٥٦٧٨٩')
 
@@ -128,41 +135,42 @@ def annotate_matn_lines_and_notes(matn_lines, glosses):
     return lines, notes
 
 
-book_header = f"""# تَيْسِيرُ الانْتِفَاعِ بِشَرْحِ مُخْتَصَرِ أَبِي شُجَاعٍ
+book_header = f"""# تَيْسِيرُ الانْتِفَاعِ بِشَرْحِ مُخْتَصَرِ أَبِي شُجَاعٍ{' — النُّسْخَةُ الْمُحَرَّرَةُ' if IS_EDITED else ''}
 ## («غَايَةِ الاِخْتِصَارِ وَالتَّقْرِيبِ»)
 
 **المتن:** غاية الاختصار (متن الغاية والتقريب) للإمام القاضي أبي شجاع أحمد بن الحسين الأصفهاني الشافعي (٤٣٣ – ٥٩٣ هـ)  
-**الشرح:** التفريغ الحرفي الكامل المراجع لدروس فضيلة الشيخ أحمد الجوهري عبد الجواد (حفظه الله تعالى)  
-**المنهج:** إثبات كلام الشيخ الشارح كاملاً كما أُلقي دون حذف أو اختصار، مع وضع كل مقطع من المتن مضبوطاً بالشكل في الأعلى، ثم الخط الفاصل، فالشرح الخاص به أسفله، وتمييز ألفاظ المتن المشروحة داخل الشرح **بالخط العريض**، وضبط الآيات القرآنية بين ﴿...﴾ والأحاديث النبوية بين «...» وخواتيم الفصول بعلامة (✽  ✽  ✽).  
+**الشرح:** {'النسخة المحررة المصاغة بالعربية الفصحى الميسرة من دروس فضيلة الشيخ أحمد الجوهري عبد الجواد (حفظه الله تعالى)' if IS_EDITED else 'التفريغ الحرفي الكامل المراجع لدروس فضيلة الشيخ أحمد الجوهري عبد الجواد (حفظه الله تعالى)'}  
+**المنهج:** {'تحرير كلام الشيخ الشارح بالعربية الفصحى الميسرة على نسق الكتب الفقهية، مع حذف مداخل الدروس وخواتيمها وأسئلة الحضور، وحفظ المعاني والأحكام كاملةً دون زيادة أو تغيير في المعنى، ووضع كل مقطع من المتن مضبوطاً بالشكل في الأعلى، ثم الخط الفاصل، فالشرح الخاص به أسفله، وتمييز ألفاظ المتن المشروحة داخل الشرح **بالخط العريض**.' if IS_EDITED else 'إثبات كلام الشيخ الشارح كاملاً كما أُلقي دون حذف أو اختصار، مع وضع كل مقطع من المتن مضبوطاً بالشكل في الأعلى، ثم الخط الفاصل، فالشرح الخاص به أسفله، وتمييز ألفاظ المتن المشروحة داخل الشرح **بالخط العريض**، وضبط الآيات القرآنية بين ﴿...﴾ والأحاديث النبوية بين «...» وخواتيم الفصول بعلامة (✽  ✽  ✽).'}  
 **الحواشي وغريب المتن:** أُلحقت في ذيل المقاطع معاني الألفاظ الغريبة التي لم يتعرّض الشيخ الشارح لبيانها في موضعها، منتقاةً من رسالة **{SOURCE_CREDIT}**.
 
 ---
 """
 
-vol1_header = f"""# تَيْسِيرُ الانْتِفَاعِ بِشَرْحِ مُخْتَصَرِ أَبِي شُجَاعٍ — الْمُجَلَّدُ الأَوَّلُ (اللقاءات ١ – ١٢)
+vol1_header = f"""# تَيْسِيرُ الانْتِفَاعِ بِشَرْحِ مُخْتَصَرِ أَبِي شُجَاعٍ{' (النسخة المحررة)' if IS_EDITED else ''} — الْمُجَلَّدُ الأَوَّلُ (اللقاءات ١ – ١٢)
 ## مُقَدِّمَةُ الْكِتَابِ وَكِتَابُ الطَّهَارَةِ
 
 **المتن:** غاية الاختصار للإمام القاضي أبي شجاع أحمد بن الحسين الأصفهاني الشافعي (رحمه الله تعالى)  
-**الشرح:** التفريغ الكامل غير المختصر لدروس فضيلة الشيخ أحمد الجوهري عبد الجواد (حفظه الله تعالى)  
+**الشرح:** {'النسخة المحررة بالعربية الفصحى من دروس فضيلة الشيخ أحمد الجوهري عبد الجواد (حفظه الله تعالى)' if IS_EDITED else 'التفريغ الكامل غير المختصر لدروس فضيلة الشيخ أحمد الجوهري عبد الجواد (حفظه الله تعالى)'}  
 **الحواشي وغريب المتن:** منتقاة من رسالة **{SOURCE_CREDIT}**.
 
 ---
 """
 
-vol2_header = f"""# تَيْسِيرُ الانْتِفَاعِ بِشَرْحِ مُخْتَصَرِ أَبِي شُجَاعٍ — الْمُجَلَّدُ الثَّانِي (اللقاءات ١٣ – ٢٥)
+vol2_header = f"""# تَيْسِيرُ الانْتِفَاعِ بِشَرْحِ مُخْتَصَرِ أَبِي شُجَاعٍ{' (النسخة المحررة)' if IS_EDITED else ''} — الْمُجَلَّدُ الثَّانِي (اللقاءات ١٣ – ٢٥)
 ## كِتَابُ الصَّلاَةِ
 
 **المتن:** غاية الاختصار للإمام القاضي أبي شجاع أحمد بن الحسين الأصفهاني الشافعي (رحمه الله تعالى)  
-**الشرح:** التفريغ الكامل غير المختصر لدروس فضيلة الشيخ أحمد الجوهري عبد الجواد (حفظه الله تعالى)  
+**الشرح:** {'النسخة المحررة بالعربية الفصحى من دروس فضيلة الشيخ أحمد الجوهري عبد الجواد (حفظه الله تعالى)' if IS_EDITED else 'التفريغ الكامل غير المختصر لدروس فضيلة الشيخ أحمد الجوهري عبد الجواد (حفظه الله تعالى)'}  
 **الحواشي وغريب المتن:** منتقاة من رسالة **{SOURCE_CREDIT}**.
 
 ---
 """
 
 # Clean old markdown files while keeping binary deliverables intact
-for fname_existing in os.listdir(legacy_md_dir):
-    if fname_existing.endswith('.md'):
-        os.remove(os.path.join(legacy_md_dir, fname_existing))
+if not IS_EDITED:
+    for fname_existing in os.listdir(legacy_md_dir):
+        if fname_existing.endswith('.md'):
+            os.remove(os.path.join(legacy_md_dir, fname_existing))
 for fname_existing in os.listdir(out_dir):
     if fname_existing.endswith('.md'):
         os.remove(os.path.join(out_dir, fname_existing))
@@ -172,15 +180,17 @@ vol1_parts = [vol1_header]
 vol2_parts = [vol2_header]
 total_words = 0
 
+in_lessons_dir = os.path.join(_REPO, 'edited_lessons' if IS_EDITED else 'clean_lessons')
+
 for num, fname, title, book_name in LESSON_SPECS:
     vid, dur = vid_by_num.get(num, ('', 0))
-    units = parse_clean_units(num, os.path.join(_REPO, 'clean_lessons', f'L{num:02d}.txt'))
+    units = parse_clean_units(num, os.path.join(in_lessons_dir, f'L{num:02d}.txt'))
     lines = [
-        f"# {title}",
+        f"# {title.replace('اللقاء ', 'الفصل/الدرس ') if IS_EDITED else title}",
         "",
-        f"**القسم:** {book_name} — تيسير الانتفاع بشرح مختصر أبي شجاع  ",
+        f"**القسم:** {book_name} — تيسير الانتفاع بشرح مختصر أبي شجاع{' (النسخة المحررة)' if IS_EDITED else ''}  ",
         "**الشارح:** فضيلة الشيخ أحمد الجوهري عبد الجواد (حفظه الله تعالى)  ",
-        f"**التسجيل الصوتي:** [اللقاء رقم ({num}) على يوتيوب](https://www.youtube.com/watch?v={vid}) ({dur} دقيقة)  ",
+        f"**{'المرجع الصوتي' if IS_EDITED else 'التسجيل الصوتي'}:** [اللقاء رقم ({num}) على يوتيوب](https://www.youtube.com/watch?v={vid}) ({dur} دقيقة)  ",
         f"**مرجع حواشي غريب المتن:** {SOURCE_CREDIT}  ",
         "",
         "---",
@@ -218,8 +228,9 @@ for num, fname, title, book_name in LESSON_SPECS:
     md_text = '\n'.join(lines)
     with open(os.path.join(out_dir, fname), 'w', encoding='utf-8') as f:
         f.write(md_text)
-    with open(os.path.join(legacy_md_dir, fname), 'w', encoding='utf-8') as f:
-        f.write(md_text)
+    if not IS_EDITED:
+        with open(os.path.join(legacy_md_dir, fname), 'w', encoding='utf-8') as f:
+            f.write(md_text)
 
     full_book_parts.append(md_text)
     if num <= 12:
@@ -227,14 +238,15 @@ for num, fname, title, book_name in LESSON_SPECS:
     else:
         vol2_parts.append(md_text)
 
-with open(os.path.join(out_dir, '00_المجلد_الكامل_تيسير_الانتفاع_بشرح_مختصر_أبي_شجاع.md'), 'w', encoding='utf-8') as f:
+full_md_name = '00_المجلد_الكامل_تيسير_الانتفاع_النسخة_المحررة.md' if IS_EDITED else '00_المجلد_الكامل_تيسير_الانتفاع_بشرح_مختصر_أبي_شجاع.md'
+with open(os.path.join(out_dir, full_md_name), 'w', encoding='utf-8') as f:
     f.write('\n'.join(full_book_parts))
 with open(os.path.join(out_dir, 'المجلد_الأول_مقدمة_الكتاب_وكتاب_الطهارة_اللقاءات_1_إلى_12.md'), 'w', encoding='utf-8') as f:
     f.write('\n'.join(vol1_parts))
 with open(os.path.join(out_dir, 'المجلد_الثاني_كتاب_الصلاة_اللقاءات_13_إلى_25.md'), 'w', encoding='utf-8') as f:
     f.write('\n'.join(vol2_parts))
 
-if os.path.isdir(old_out_dir):
+if not IS_EDITED and os.path.isdir(old_out_dir):
     shutil.rmtree(old_out_dir)
 
-print(f"Updated all 25 lesson markdown files and 3 volume files in {out_dir}! Total Sharh words: {total_words}")
+print(f"Updated all 25 lesson markdown files and 3 volume files in {out_dir} (mode={_ARGS.mode})! Total Sharh words: {total_words}")

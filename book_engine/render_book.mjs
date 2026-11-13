@@ -237,9 +237,17 @@ window.renderFullBook = async function(data, edition) {
     el.innerHTML = '<img class="cover-img" src="file://' + path.join(__ENG, 'cover_front.png') + '" alt="تيسير الانتفاع بشرح مختصر أبي شجاع">';
   }
 
+  const isEdited = data.mode === 'edited';
+
   // Page 2: Inside Title Plate
   {
     const { bodyFrame } = createPage({ framed: true, skipHeader: true });
+    const p2Desc = isEdited
+      ? 'النُّسْخَةُ الْمُحَرَّرَةُ الْمُصَاغَةُ بِالْعَرَبِيَّةِ الْفُصْحَى عَلَى نَسَقِ الْكُتُبِ الْفِقْهِيَّةِ'
+      : 'التَّفْرِيغُ الْحَرْفِيُّ الْكَامِلُ لِدُرُوسِ شَرْحِ مَتْنِ أَبِي شُجَاعٍ';
+    const p2Right = isEdited
+      ? 'طَبْعَةٌ مُحَرَّرَةٌ مُهَذَّبَةٌ'
+      : '٢٥ لِقَاءً صَوْتِيًّا كَامِلاً';
     bodyFrame.innerHTML =
       '<div class="frame-outer"><div class="frame-inner">' +
         '<div style="width:100%;">' +
@@ -250,7 +258,7 @@ window.renderFullBook = async function(data, edition) {
           '</div>' +
           '<div class="title-plate-sub">( الْمُسَمَّى بِـ « غَايَةِ الاِخْتِصَارِ وَالتَّقْرِيبِ » )</div>' +
           '<div class="title-plate-desc">' +
-            'التَّفْرِيغُ الْحَرْفِيُّ الْكَامِلُ لِدُرُوسِ شَرْحِ مَتْنِ أَبِي شُجَاعٍ' +
+            p2Desc +
           '</div>' +
         '</div>' +
         '<div style="font-size: 12pt; line-height: 1.95; width:92%;">' +
@@ -262,7 +270,7 @@ window.renderFullBook = async function(data, edition) {
         '</div>' +
         '<div class="title-plate-bottom">' +
           '<span>كِتَابُ الطَّهَارَةِ وَكِتَابُ الصَّلاَةِ</span>' +
-          '<span>٢٥ لِقَاءً صَوْتِيًّا كَامِلاً</span>' +
+          '<span>' + p2Right + '</span>' +
         '</div>' +
       '</div></div>';
   }
@@ -271,16 +279,26 @@ window.renderFullBook = async function(data, edition) {
   {
     const { bodyFrame } = createPage({ framed: true, skipHeader: true });
     const srcText = data.glossary_source || '«الأَنوَارُ عَلَى غَايَةِ الاِخْتِصَارِ» لِجَامِعِهِ عَبْدِ الرَّحْمَنِ مُحَمَّدٍ نُورِ الدِّينِ';
+    const p3Sub = isEdited
+      ? '<span style="font-size: 11.5pt; font-weight: 400;">نُسْخَةٌ مُحَرَّرَةٌ مُهَذَّبَةٌ لِشَرْحِ السِّلْسِلَةِ الْفِقْهِيَّةِ الشَّافِعِيَّةِ</span><br>' +
+        '<span style="font-size: 11pt; font-weight: 400;">( مُحَرَّرَةٌ عَلَى نَسَقِ الْكُتُبِ الْفِقْهِيَّةِ )</span>'
+      : '<span style="font-size: 11.5pt; font-weight: 400;">تَفْرِيغٌ حَرْفِيٌّ كَامِلٌ مُرَاجَعٌ لِدُرُوسِ السِّلْسِلَةِ الْفِقْهِيَّةِ الشَّافِعِيَّةِ</span><br>' +
+        '<span style="font-size: 11pt; font-weight: 400;">( اللِّقَاءَاتُ : ١ – ٢٥ )</span>';
+    const p3Disc = isEdited
+      ? 'أُعِدَّتْ هَذِهِ النُّسْخَةُ بِتَحْرِيرِ كَلاَمِ الشَّيْخِ الشَّارِحِ بِالْعَرَبِيَّةِ الْفُصْحَى الْمُيَسَّرَةِ، وَتَنْقِيَتِهِ مِنَ الْعَامِّيَّةِ وَفَوَاتِحِ الدُّرُوسِ وَخَوَاتِمِهَا وَأَسْئِلَةِ الْحُضُورِ، مَعَ الأَمَانَةِ التَّامَّةِ فِي حِفْظِ الْمَعَانِي وَالأَحْكَامِ دُونَ تَغْيِيرٍ أَوْ زِيَادَةٍ.'
+      : 'أُعِدَّ هَذَا الْكِتَابُ بِإِثْبَاتِ كَلاَمِ الشَّيْخِ الشَّارِحِ كَامِلاً كَمَا أُلْقِيَ دُونَ حَذْفٍ أَوْ اخْتِصَارٍ ،<br>' +
+        'مَعَ إِثْبَاتِ مَتْنِ أَبِي شُجَاعٍ مَضْبُوطاً بِالشَّكْلِ أَعْلَى الصَّفْحَةِ مَفْصُولاً بِخَطٍّ أُفُقِيٍّ عَنِ الشَّرْحِ أَسْفَلَهُ';
+    const p3Syms = isEdited
+      ? '<div>﴿ ... ﴾ لِلآيَاتِ الْقُرْآنِيَّةِ &nbsp;•&nbsp; « ... » لِلأَحَادِيثِ &nbsp;•&nbsp; (١) لِغَرِيبِ الْمَتْنِ</div>'
+      : '<div>﴿ ... ﴾ لِلآيَاتِ الْقُرْآنِيَّةِ &nbsp;•&nbsp; « ... » لِلأَحَادِيثِ &nbsp;•&nbsp; (١) لِغَرِيبِ الْمَتْنِ &nbsp;•&nbsp; (*) لِبَيَانِ اللِّقَاءِ الصَّوْتِيِّ</div>';
     bodyFrame.innerHTML =
       '<div class="frame-outer"><div class="frame-inner">' +
         '<div style="font-size: 15pt; font-weight: 700; line-height: 1.85; margin-top: 2mm;">' +
           '<span class="colophon-accent">تَيْسِيرُ الانْتِفَاعِ بِشَرْحِ مُخْتَصَرِ أَبِي شُجَاعٍ</span><br>' +
-          '<span style="font-size: 11.5pt; font-weight: 400;">تَفْرِيغٌ حَرْفِيٌّ كَامِلٌ مُرَاجَعٌ لِدُرُوسِ السِّلْسِلَةِ الْفِقْهِيَّةِ الشَّافِعِيَّةِ</span><br>' +
-          '<span style="font-size: 11pt; font-weight: 400;">( اللِّقَاءَاتُ : ١ – ٢٥ )</span>' +
+          p3Sub +
         '</div>' +
         '<div class="disclaimer-box">' +
-          'أُعِدَّ هَذَا الْكِتَابُ بِإِثْبَاتِ كَلاَمِ الشَّيْخِ الشَّارِحِ كَامِلاً كَمَا أُلْقِيَ دُونَ حَذْفٍ أَوْ اخْتِصَارٍ ،<br>' +
-          'مَعَ إِثْبَاتِ مَتْنِ أَبِي شُجَاعٍ مَضْبُوطاً بِالشَّكْلِ أَعْلَى الصَّفْحَةِ مَفْصُولاً بِخَطٍّ أُفُقِيٍّ عَنِ الشَّرْحِ أَسْفَلَهُ' +
+          p3Disc +
         '</div>' +
         '<div class="colophon-source-box">' +
           '<div class="colophon-accent">مَنْهَجُ الحَوَاشِي وَتَفْسِيرِ غَرِيبِ الْمَتْنِ :</div>' +
@@ -291,7 +309,7 @@ window.renderFullBook = async function(data, edition) {
         '<div style="font-size: 10pt; line-height: 1.85; width: 92%;">' +
           '<div><span class="colophon-accent">رُمُوزُ الضَّبْطِ وَالتَّنْسِيقِ :</span></div>' +
           '<div><strong>الْخَطُّ الْعَرِيضُ دَاخِلَ الشَّرْحِ</strong> يُمَيِّزُ أَلْفَاظَ الْمَتْنِ الَّتِي يَسْتَشْهِدُ بِهَا الشَّارِحُ</div>' +
-          '<div>﴿ ... ﴾ لِلآيَاتِ الْقُرْآنِيَّةِ &nbsp;•&nbsp; « ... » لِلأَحَادِيثِ &nbsp;•&nbsp; (١) لِغَرِيبِ الْمَتْنِ &nbsp;•&nbsp; (*) لِبَيَانِ اللِّقَاءِ الصَّوْتِيِّ</div>' +
+          p3Syms +
         '</div>' +
         '<div class="colophon-foot">' +
           'تَيْسِيرُ الانْتِفَاعِ بِشَرْحِ مُخْتَصَرِ أَبِي شُجَاعٍ — لِفَضِيلَةِ الشَّيْخِ أَحْمَدَ الْجَوْهَرِيِّ' +
