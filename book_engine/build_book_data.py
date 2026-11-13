@@ -78,26 +78,31 @@ def parse_clean_file(path: str, lesson_num: int):
             elif cur == 'M' and line.strip():
                 meta['matn'].append(line.strip())
 
-        matn_text = '\n'.join(l for l in meta['matn'] if l).strip()
+        matn_raw_lines = [l for l in meta['matn'] if l]
+        if meta['toc_book'] and matn_raw_lines and matn_raw_lines[0].strip().rstrip(':') == meta['toc_book'].strip().rstrip(':'):
+            matn_raw_lines = matn_raw_lines[1:]
+        matn_text = '\n'.join(matn_raw_lines).strip()
+        is_preface = (len(matn_raw_lines) == 0)
+
         # Separate paragraphs by blank lines
         paras_raw = [p.strip() for p in re.split(r'\n\s*\n', sharh_raw) if p.strip()]
         paras_html = [format_sharh_inline_html(re.sub(r'\s*\n\s*', ' ', p)) for p in paras_raw]
         ayahs = extract_ayahs(sharh_raw)
 
-        # Clean heading whitespace inside brackets
         heading = meta['heading'].strip()
-        if not heading.startswith('['):
+        if heading and not is_preface and not heading.startswith('['):
             heading = f'[ {heading} ]'
 
         units.append({
             'id': f'L{lesson_num:02d}_U{u_idx:02d}',
             'lesson_num': lesson_num,
             'unit_num': u_idx,
+            'is_preface': is_preface,
             'toc_book': meta['toc_book'],
             'toc_fasl': meta['toc_fasl'],
             'lesson_note': meta['lesson_note'],
             'heading': heading,
-            'sharh_header': meta['sharh_header'],
+            'sharh_header': '',
             'matn_raw': matn_text,
             'matn_lines': [html.escape(l) for l in matn_text.splitlines() if l.strip()],
             'fasl_end': meta['fasl_end'],

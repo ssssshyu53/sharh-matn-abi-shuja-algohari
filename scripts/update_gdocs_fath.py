@@ -1,11 +1,15 @@
 #!/usr/bin/env python3
 """
-Updates the 3 Google Docs (Full Volume, Volume 1: Kitab al-Taharah, Volume 2: Kitab al-Salah & al-Jana'iz)
-in-place using `gdocs mutate batch` with the Dar Ibn Hazm split-section layout:
+Updates the 3 Google Docs (Full Volume, Volume 1: Kitab al-Taharah, Volume 2: Kitab al-Salah)
+in-place using `gdocs mutate batch`:
+  - Title: تَيْسِيرُ الانْتِفَاعِ بِشَرْحِ مُخْتَصَرِ أَبِي شُجَاعٍ
+  - Sheikh honorific: لِفَضِيلَةِ الشَّيْخِ أَحْمَدَ الْجَوْهَرِيِّ عَبْدِ الْجَوَادِ (without الدكتور)
+  - No front audio lecture schedule table
+  - Continuous book preface (`is_preface`) with no split rule
+  - Matn-authentic headings only (`toc_book`, `toc_fasl`) — no artificial sub-headings or SHARH_HEADER
   - Upper Matn zone (13.5pt Amiri, justified, fully vocalized, soft cream background)
   - Horizontal dividing rule (`horizontal-rule`)
   - Lower Sharh zone (11.5pt Amiri, justified, bolded Matn phrases, ﴿...﴾ ayahs)
-  - Centered `✽      ✽      ✽` floral section separators
   - Full RTL paragraph direction (`RIGHT_TO_LEFT`) across the entire document body.
 """
 import json
@@ -17,6 +21,13 @@ os.environ.setdefault("ANTIGRAVITY_APP_DATA_DIR", "/home/antigravity/.local/gdoc
 
 REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DATA_PATH = os.path.join(REPO_ROOT, "book_engine", "book_data.json")
+if not os.path.exists("/home/antigravity/book_engine/book_data.json"):
+    DATA_PATH = os.path.join(REPO_ROOT, "book_engine", "book_data.json")
+else:
+    # Prefer freshly generated workspace book_data.json if newer
+    ws_data = "/home/antigravity/book_engine/book_data.json"
+    if os.path.getmtime(ws_data) >= os.path.getmtime(DATA_PATH):
+        DATA_PATH = ws_data
 
 with open(DATA_PATH, encoding="utf-8") as f:
     DATA = json.load(f)
@@ -69,8 +80,8 @@ def html_para_to_runs(p_html: str):
     return runs
 
 
-def build_header_ops(title_main: str, subtitle_line: str, lessons_slice):
-    ops = [
+def build_header_ops(title_main: str, subtitle_line: str):
+    return [
         {
             "op": "set-default-style",
             "font_family": "Amiri",
@@ -111,7 +122,7 @@ def build_header_ops(title_main: str, subtitle_line: str, lessons_slice):
         },
         {
             "op": "append",
-            "text": "لِفَضِيلَةِ الشَّيْخِ الدُّكْتُورِ أَحْمَدَ الْجَوْهَرِيِّ عَبْدِ الْجَوَادِ (حَفِظَهُ اللهُ تَعَالَى)",
+            "text": "لِفَضِيلَةِ الشَّيْخِ أَحْمَدَ الْجَوْهَرِيِّ عَبْدِ الْجَوَادِ (حَفِظَهُ اللهُ تَعَالَى)",
             "font_family": "Amiri",
             "font_size": 13,
             "bold": True,
@@ -120,7 +131,7 @@ def build_header_ops(title_main: str, subtitle_line: str, lessons_slice):
         },
         {
             "op": "append",
-            "text": "مُعَدٌّ وَمُنَسَّقٌ كَامِلاً دُونَ اخْتِصَارٍ عَلَى طَرِيقَةِ طَبْعَةِ دَارِ ابْنِ حَزْمٍ لِكِتَابِ « فَتْحِ الْقَرِيبِ الْمُجِيبِ »\n( الْمَتْنُ فِي أَعْلَى الْمَقْطَعِ مَفْصُولاً بِخَطٍّ أُفُقِيٍّ عَنِ الشَّرْحِ الْحَرْفِيِّ الْكَامِلِ أَسْفَلَهُ )",
+            "text": "وَالْمَتْنُ لِلْقَاضِي أَبِي شُجَاعٍ أَحْمَدَ بْنِ الْحُسَيْنِ الأَصْفَهَانِيِّ (٤٣٣ – ٥٩٣ هـ)\nتَفْرِيغٌ حَرْفِيٌّ كَامِلٌ مُرَاجَعٌ دُونَ حَذْفٍ أَوْ اخْتِصَارٍ ( الْمَتْنُ مَضْبُوطاً بِالشَّكْلِ فِي الأَعْلَى مَفْصُولاً بِخَطٍّ أُفُقِيٍّ عَنِ الشَّرْحِ أَسْفَلَهُ )",
             "font_family": "Amiri",
             "font_size": 11,
             "bold": False,
@@ -135,33 +146,8 @@ def build_header_ops(title_main: str, subtitle_line: str, lessons_slice):
             "bold": True,
             "alignment": "CENTER",
         },
+        {"op": "horizontal-rule"},
     ]
-
-    table_data = [["م", "مَوْضُوعُ اللِّقَاءِ الصَّوْتِيِّ", "الْمُدَّةُ", "عَدَدُ الْكَلِمَاتِ"]]
-    for l in lessons_slice:
-        clean_t = re.sub(r"^اللقاء [^:]+:\s*", "", l["title"])
-        table_data.append([
-            l["eastern_num"],
-            clean_t,
-            f"{l['eastern_dur']} د",
-            str(l["word_count"]),
-        ])
-    ops.append({
-        "op": "insert-table",
-        "rows": len(table_data),
-        "cols": 4,
-        "table_data": table_data,
-        "table_header_bold": True,
-        "table_header_bg_color": "#f3f0e6",
-        "table_header_text_color": "#111111",
-        "table_font_family": "Amiri",
-        "table_font_size": 10.5,
-        "table_border_color": "#222222",
-        "table_border_width": 0.75,
-        "table_col_widths": [36, 300, 56, 70],
-    })
-    ops.append({"op": "horizontal-rule"})
-    return ops
 
 
 def build_unit_ops(units_slice):
@@ -177,6 +163,52 @@ def build_unit_ops(units_slice):
         }
     ]
     for u in units_slice:
+        if u.get("is_preface"):
+            preface_title = u.get("toc_fasl") or "مُقَدِّمَةُ الْكِتَابِ"
+            ops.append({
+                "op": "heading",
+                "level": "2",
+                "text": preface_title,
+                "font_family": "Amiri",
+                "font_size": 16,
+                "bold": True,
+                "alignment": "CENTER",
+                "text_color": "#111111",
+                "space_above": 8,
+                "space_below": 4,
+            })
+            if u.get("lesson_note"):
+                ops.append({
+                    "op": "append",
+                    "text": f"({u['lesson_note']})",
+                    "font_family": "Amiri",
+                    "font_size": 10,
+                    "bold": False,
+                    "alignment": "CENTER",
+                    "text_color": "#444444",
+                })
+            for p_html in u["sharh_paras_html"]:
+                runs = html_para_to_runs(p_html)
+                ops.append({
+                    "op": "rich-text",
+                    "font_family": "Amiri",
+                    "font_size": 11.5,
+                    "text_color": "#111111",
+                    "alignment": "JUSTIFIED",
+                    "indent_first_line": 18,
+                    "runs": runs,
+                })
+            ops.append({
+                "op": "append",
+                "text": "✽      ✽      ✽",
+                "font_family": "Amiri",
+                "font_size": 12,
+                "bold": True,
+                "alignment": "CENTER",
+                "text_color": "#111111",
+            })
+            continue
+
         if u.get("toc_book"):
             ops.append({
                 "op": "heading",
@@ -190,19 +222,19 @@ def build_unit_ops(units_slice):
                 "space_above": 10,
                 "space_below": 4,
             })
-        heading_level = "2" if (u.get("toc_fasl") or u["unit_num"] == 1) else "3"
-        ops.append({
-            "op": "heading",
-            "level": heading_level,
-            "text": u["heading"],
-            "font_family": "Amiri",
-            "font_size": 14.5 if heading_level == "2" else 13,
-            "bold": True,
-            "alignment": "CENTER",
-            "text_color": "#111111",
-            "space_above": 6,
-            "space_below": 3,
-        })
+        if u.get("toc_fasl"):
+            ops.append({
+                "op": "heading",
+                "level": "2",
+                "text": u["toc_fasl"],
+                "font_family": "Amiri",
+                "font_size": 14.5,
+                "bold": True,
+                "alignment": "CENTER",
+                "text_color": "#111111",
+                "space_above": 6,
+                "space_below": 3,
+            })
         if u.get("lesson_note"):
             ops.append({
                 "op": "append",
@@ -221,30 +253,20 @@ def build_unit_ops(units_slice):
                 .replace("&gt;", ">")
                 .replace("&amp;", "&")
             )
+            is_basmalah = (clean_m.strip() == "بِسْمِ اللهِ الرَّحْمَنِ الرَّحِيمِ")
             ops.append({
                 "op": "append",
                 "text": clean_m,
                 "font_family": "Amiri",
-                "font_size": 13.5,
+                "font_size": 14.5 if is_basmalah else 13.5,
                 "bold": True,
-                "alignment": "JUSTIFIED",
-                "indent_first_line": 18,
+                "alignment": "CENTER" if is_basmalah else "JUSTIFIED",
+                "indent_first_line": 0 if is_basmalah else 18,
                 "paragraph_bg_color": "#faf7ef",
                 "text_color": "#111111",
             })
 
         ops.append({"op": "horizontal-rule"})
-
-        if u.get("sharh_header"):
-            ops.append({
-                "op": "append",
-                "text": u["sharh_header"],
-                "font_family": "Amiri",
-                "font_size": 13,
-                "bold": True,
-                "alignment": "CENTER",
-                "text_color": "#111111",
-            })
 
         for p_html in u["sharh_paras_html"]:
             runs = html_para_to_runs(p_html)
@@ -258,15 +280,26 @@ def build_unit_ops(units_slice):
                 "runs": runs,
             })
 
-        ops.append({
-            "op": "append",
-            "text": "✽      ✽      ✽",
-            "font_family": "Amiri",
-            "font_size": 12,
-            "bold": True,
-            "alignment": "CENTER",
-            "text_color": "#111111",
-        })
+        if u.get("fasl_end"):
+            ops.append({
+                "op": "append",
+                "text": "✽      ✽      ✽",
+                "font_family": "Amiri",
+                "font_size": 12,
+                "bold": True,
+                "alignment": "CENTER",
+                "text_color": "#111111",
+            })
+        else:
+            ops.append({
+                "op": "append",
+                "text": "✽   ✽   ✽",
+                "font_family": "Amiri",
+                "font_size": 10.5,
+                "bold": False,
+                "alignment": "CENTER",
+                "text_color": "#555555",
+            })
     return ops
 
 
@@ -311,31 +344,26 @@ def apply_rtl_to_entire_doc(doc_id: str):
 
 
 def main():
-    lessons_v1 = [l for l in DATA["lessons"] if l["lesson_num"] <= 12]
-    lessons_v2 = [l for l in DATA["lessons"] if l["lesson_num"] >= 13]
     units_v1 = [u for u in DATA["units"] if u["lesson_num"] <= 12]
     units_v2 = [u for u in DATA["units"] if u["lesson_num"] >= 13]
 
     ops_v1 = build_header_ops(
-        "الشَّرْحُ الْكَامِلُ عَلَى أَلْفَاظِ مَتْنِ أَبِي شُجَاعٍ — الْمُجَلَّدُ الأَوَّلُ: كِتَابُ الطَّهَارَةِ",
-        "التَّفْرِيغُ الْحَرْفِيُّ الْكَامِلُ الْمُرَاجَعُ لِلِّقَاءَاتِ ( ١ – ١٢ )",
-        lessons_v1,
+        "تَيْسِيرُ الانْتِفَاعِ بِشَرْحِ مُخْتَصَرِ أَبِي شُجَاعٍ — الْمُجَلَّدُ الأَوَّلُ",
+        "مُقَدِّمَةُ الْكِتَابِ وَكِتَابُ الطَّهَارَةِ — التَّفْرِيغُ الْحَرْفِيُّ الْكَامِلُ لِلِّقَاءَاتِ ( ١ – ١٢ )",
     ) + build_unit_ops(units_v1)
     run_batch(DOC_VOL1, ops_v1, replace_all=True, label="Volume 1 (L01-L12)")
     apply_rtl_to_entire_doc(DOC_VOL1)
 
     ops_v2 = build_header_ops(
-        "الشَّرْحُ الْكَامِلُ عَلَى أَلْفَاظِ مَتْنِ أَبِي شُجَاعٍ — الْمُجَلَّدُ الثَّانِي: كِتَابُ الصَّلاَةِ وَالْجَنَائِزِ",
-        "التَّفْرِيغُ الْحَرْفِيُّ الْكَامِلُ الْمُرَاجَعُ لِلِّقَاءَاتِ ( ١٣ – ٢٥ )",
-        lessons_v2,
+        "تَيْسِيرُ الانْتِفَاعِ بِشَرْحِ مُخْتَصَرِ أَبِي شُجَاعٍ — الْمُجَلَّدُ الثَّانِي",
+        "كِتَابُ الصَّلاَةِ — التَّفْرِيغُ الْحَرْفِيُّ الْكَامِلُ لِلِّقَاءَاتِ ( ١٣ – ٢٥ )",
     ) + build_unit_ops(units_v2)
     run_batch(DOC_VOL2, ops_v2, replace_all=True, label="Volume 2 (L13-L25)")
     apply_rtl_to_entire_doc(DOC_VOL2)
 
     ops_full_part1 = build_header_ops(
-        "الشَّرْحُ الْكَامِلُ عَلَى أَلْفَاظِ مَتْنِ أَبِي شُجَاعٍ (الْمُسَمَّى بِغَايَةِ الاِخْتِصَارِ وَالتَّقْرِيبِ)",
-        "الْمُجَلَّدُ الْكَامِلُ لِلدُّرُوسِ الْخَمْسَةِ وَالْعِشْرِينَ ( ١ – ٢٥ ) — الطَّهَارَةُ وَالصَّلاَةُ وَالْجَنَائِزُ",
-        DATA["lessons"],
+        "تَيْسِيرُ الانْتِفَاعِ بِشَرْحِ مُخْتَصَرِ أَبِي شُجَاعٍ",
+        "الشَّرْحُ الْحَرْفِيُّ الْكَامِلُ عَلَى مَتْنِ الْغَايَةِ وَالتَّقْرِيبِ لِلْقَاضِي أَبِي شُجَاعٍ — اللِّقَاءَاتُ ( ١ – ٢٥ )",
     ) + build_unit_ops(units_v1)
     ops_full_part2 = build_unit_ops(units_v2)
     run_batch(DOC_FULL, ops_full_part1, replace_all=True, label="Full Volume Part 1")

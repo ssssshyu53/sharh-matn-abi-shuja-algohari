@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 """
 Verifies that every cleaned lesson file (`clean_lessons/L01.txt` .. `L25.txt`)
-preserves 100% of Sheikh Dr. Ahmad Al-Gohari's spoken verbatim commentary from
+preserves 100% of Sheikh Ahmad Al-Gohari's spoken verbatim commentary from
 `تفريغ_كامل_مجرد_كما_ذكر/*.txt` with:
   - Zero missing gaps >= 18 words
   - Zero non-Arabic Whisper ASR hallucinations/corruptions
-  - Proper segmentation into `===UNIT===` / `HEADING:` / `MATN:` / `---SHARH---` blocks.
+  - Proper segmentation into `@@UNIT` / `MATN:` / `@@SHARH` blocks.
 """
 import glob
 import os
@@ -32,22 +32,23 @@ def verify_lesson(lnum: int) -> bool:
         return False
 
     raw_txt = open(raw_matches[0], encoding="utf-8").read()
-    # Skip 4-line metadata header in raw file if present
-    raw_lines = [ln for ln in raw_txt.splitlines() if not ln.startswith(("عنوان الدرس:", "الشيخ الشارح:", "الكتاب:", "رابط الدرس:", "==="))]
+    raw_lines = [
+        ln for ln in raw_txt.splitlines()
+        if not ln.startswith(("عنوان الدرس:", "الشيخ الشارح:", "الكتاب:", "رابط الدرس:", "==="))
+    ]
     raw_body = "\n".join(raw_lines)
 
     clean_txt = open(clean_path, encoding="utf-8").read()
-    units = [u.strip() for u in clean_txt.split("===UNIT===") if u.strip()]
+    units = [u.strip() for u in re.split(r"^@@UNIT\s*$", clean_txt, flags=re.M) if u.strip()]
     sharh_chunks = []
     for u in units:
-        if "---SHARH---" not in u:
-            print(f"L{lnum:02d} [FAIL]: Unit missing ---SHARH---")
+        m_sh = re.search(r"^@@SHARH\s*\n(.*)", u, flags=re.M | re.S)
+        if not m_sh:
+            print(f"L{lnum:02d} [FAIL]: Unit missing @@SHARH")
             return False
-        _, sh = u.split("---SHARH---", 1)
-        sharh_chunks.append(sh.strip())
+        sharh_chunks.append(m_sh.group(1).strip())
 
     clean_body = "\n".join(sharh_chunks)
-    # Check for Latin characters inside cleaned Sharh
     latin = re.findall(r"[A-Za-z]{2,}", clean_body)
     if latin:
         print(f"L{lnum:02d} [FAIL]: Found Latin tokens in cleaned text: {latin[:5]}")

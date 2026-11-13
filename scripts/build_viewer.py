@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """
-Builds the interactive Dar Ibn Hazm Book Viewer HTML artifact
+Builds the interactive Book Viewer HTML artifact
 (`matn_abi_shuja_transcripts.html`) directly from:
-  - `/home/antigravity/book_engine/full_book.html` (the exact 320 paginated Dar Ibn Hazm pages)
-  - `/tmp/book_data.json` (the 25 lessons & 167 clause units)
+  - `/home/antigravity/book_engine/full_book.html` (paginated pages)
+  - `/home/antigravity/book_engine/book_data.json` (25 lessons & 167 units)
   - `/home/antigravity/تفريغ_كامل_مجرد_كما_ذكر/*.txt` (raw verbatim transcripts)
 """
 import glob
@@ -11,11 +11,19 @@ import json
 import os
 import re
 
-ARTIFACT_DIR = "/home/antigravity/.gemini/jetski/brain/v1/default/jetski_remote_agents_3p/bd48a090-cb19-4d3b-a48b-9325825df25c"
-BOOK_HTML_PATH = "/home/antigravity/book_engine/full_book.html"
-BOOK_DATA_PATH = "/tmp/book_data.json"
-RAW_TXT_DIR = "/home/antigravity/تفريغ_كامل_مجرد_كما_ذكر"
-OUT_HTML = os.path.join(ARTIFACT_DIR, "matn_abi_shuja_transcripts.html")
+REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+BOOK_HTML_PATH = os.path.join(REPO_ROOT, "book_engine", "full_book.html")
+BOOK_DATA_PATH = os.path.join(REPO_ROOT, "book_engine", "book_data.json")
+RAW_TXT_DIR = os.path.join(REPO_ROOT, "تفريغ_كامل_مجرد_كما_ذكر")
+OUT_HTML = os.path.join(REPO_ROOT, "index.html")
+OUT_VIEWER_COPY = os.path.join(REPO_ROOT, "viewer", "matn_abi_shuja_transcripts.html")
+
+EDIGITS = str.maketrans("0123456789", "٠١٢٣٤٥٦٧٨٩")
+
+
+def to_e(n) -> str:
+    return str(n).translate(EDIGITS)
+
 
 with open(BOOK_DATA_PATH, encoding="utf-8") as f:
     book_data = json.load(f)
@@ -23,9 +31,19 @@ with open(BOOK_DATA_PATH, encoding="utf-8") as f:
 with open(BOOK_HTML_PATH, encoding="utf-8") as f:
     full_book_html = f.read()
 
-# Extract individual <div class="page..." id="pg-N">...</div> blocks from full_book.html
 m_root = re.search(r'<div id="book-root">(.*)</div>\s*</body>', full_book_html, flags=re.S)
 book_root_inner = m_root.group(1) if m_root else ""
+
+# Extract page map for exact page discovery
+pg_tokens = re.split(r'<div class="page[^"]*" id="pg-(\d+)"', book_root_inner)[1:]
+pg_map = {int(pg_tokens[i]): pg_tokens[i + 1] for i in range(0, len(pg_tokens), 2)}
+TOTAL_PAGES = max(pg_map.keys()) if pg_map else 1
+
+indexes_start_pg = TOTAL_PAGES
+for pnum in sorted(pg_map.keys()):
+    if "فَهْرَسُ الآيَاتِ الْقُرْآنِيَّةِ" in pg_map[pnum]:
+        indexes_start_pg = pnum
+        break
 
 # Extract raw verbatim text for each lesson
 raw_by_lesson = {}
@@ -35,25 +53,32 @@ for lnum in range(1, 26):
         with open(matches[0], encoding="utf-8") as rf:
             raw_by_lesson[lnum] = rf.read()
 
-# Find which page each lesson starts on inside book_root_inner
+# Find which page each lesson starts on inside pg_map
 lesson_start_pg = {}
 for l in book_data["lessons"]:
     uid = l["first_unit_id"]
-    # Find page containing id="unit-{uid}"
-    m_pg = re.search(
-        r'<div class="page[^"]*" id="pg-(\d+)"(?:(?!<div class="page).)*?id="unit-' + re.escape(uid) + r'"',
-        book_root_inner,
-        flags=re.S,
-    )
-    lesson_start_pg[l["lesson_num"]] = int(m_pg.group(1)) if m_pg else 7
+    needle = f'id="unit-{uid}"'
+    found_pg = None
+    for pnum in sorted(pg_map.keys()):
+        if pnum >= indexes_start_pg:
+            break
+        if needle in pg_map[pnum]:
+            found_pg = pnum
+            break
+    lesson_start_pg[l["lesson_num"]] = found_pg if found_pg is not None else 4
+
+first_body_pg = lesson_start_pg.get(1, 4)
+front_end_pg = max(1, first_body_pg - 1)
 
 lessons_meta = []
-for i, l in enumerate(book_data["lessons"]):
+for l in book_data["lessons"]:
     lnum = l["lesson_num"]
-    start_p = lesson_start_pg.get(lnum, 7)
-    end_p = (lesson_start_pg.get(lnum + 1, 315) - 1) if lnum < 25 else 314
-    if end_p < start_p:
-        end_p = start_p
+    start_p = lesson_start_pg.get(lnum, first_body_pg)
+    if lnum < 25:
+        next_start = lesson_start_pg.get(lnum + 1, indexes_start_pg)
+        end_p = next_start - 1 if next_start > start_p else start_p
+    else:
+        end_p = max(start_p, indexes_start_pg - 1)
     vid_id = l.get("url", "").split("v=")[-1] if "v=" in l.get("url", "") else ""
     lessons_meta.append({
         "lesson_num": lnum,
@@ -72,7 +97,7 @@ viewer_html = f"""<!DOCTYPE html>
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>الشَّرْحُ الْكَامِلُ عَلَى مَتْنِ أَبِي شُجَاعٍ — طَبْعَةٌ عَلَى نَسَقِ فَتْحِ الْقَرِيبِ الْمُجِيبِ (دار ابن حزم)</title>
+<title>تَيْسِيرُ الانْتِفَاعِ بِشَرْحِ مُخْتَصَرِ أَبِي شُجَاعٍ — لِفَضِيلَةِ الشَّيْخِ أَحْمَدَ الْجَوْهَرِيِّ</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Amiri+Quran&family=Amiri:ital,wght@0,400;0,700;1,400&family=Cairo:wght@500;600;700;800&display=swap" rel="stylesheet">
@@ -144,7 +169,7 @@ aside {{
 }}
 .sb-title {{
   font-family: 'AmiriBook', 'Amiri', serif;
-  font-size: 1.3rem;
+  font-size: 1.25rem;
   font-weight: 700;
   color: #fde68a;
   line-height: 1.4;
@@ -301,7 +326,7 @@ header.top-bar {{
   border: none;
 }}
 
-/* Dar Ibn Hazm Exact Page Styles (162mm x 234mm) */
+/* Book Page Styles (162mm x 234mm) */
 #book-root {{
   display: flex;
   flex-direction: column;
@@ -395,33 +420,33 @@ header.top-bar {{
   line-height: 1.55;
   margin: 0 0 4pt 0;
 }}
-.matn-sub-label {{
-  text-align: center;
-  font-size: 12pt;
-  font-weight: 700;
-  line-height: 1.5;
-  margin: 0 0 2.5pt 0;
-  color: #222;
-}}
 .matn-p {{
   margin: 0 0 1.5pt 0;
   text-align: justify;
   text-align-last: right;
   text-indent: 1.4em;
 }}
-.matn-cont-context {{
-  font-size: 11.8pt;
-  line-height: 1.72;
-  text-align: justify;
-  text-align-last: right;
-  color: var(--ink);
-  margin: 0;
+.matn-basmalah {{
+  text-align: center;
+  font-family: 'AmiriQuranFont', 'Amiri Quran', 'AmiriBook', serif;
+  font-size: 15.5pt;
+  line-height: 1.8;
+  margin: 1pt 0 3pt 0;
 }}
-.matn-cont-tag {{
-  font-size: 10.5pt;
+.matn-cont-dots {{
+  text-align: center;
+  font-size: 13.5pt;
+  line-height: 1.35;
+  letter-spacing: 0.5pt;
+  color: var(--ink);
+  margin: 1pt 0 3pt 0;
+}}
+.preface-h {{
+  text-align: center;
+  font-size: 17pt;
   font-weight: 700;
-  color: #222;
-  margin-left: 4pt;
+  line-height: 1.65;
+  margin: 2pt 0 8pt 0;
 }}
 .stars-row {{
   display: flex;
@@ -445,20 +470,6 @@ header.top-bar {{
   overflow: hidden;
   min-height: 0;
 }}
-.sharh-center-title {{
-  text-align: center;
-  font-size: 13.5pt;
-  font-weight: 700;
-  line-height: 1.6;
-  margin: 1pt 0 4pt 0;
-}}
-.sharh-sub-title {{
-  text-align: center;
-  font-size: 12pt;
-  font-weight: 700;
-  line-height: 1.55;
-  margin: 1pt 0 3.5pt 0;
-}}
 .sharh-p {{
   margin: 0 0 1.5pt 0;
   text-align: justify;
@@ -466,7 +477,6 @@ header.top-bar {{
   text-indent: 1.4em;
 }}
 .sharh-p.cont {{ text-indent: 0; }}
-.sharh-p.split-tail {{ text-align-last: justify; }}
 .sharh-p strong, .sharh-zone strong {{ font-weight: 700; }}
 .ayah {{
   font-family: 'AmiriQuranFont', 'Amiri Quran', 'AmiriBook', serif;
@@ -488,50 +498,7 @@ header.top-bar {{
   line-height: 1.55;
   color: var(--ink);
 }}
-.basmalah-block {{ text-align: center; margin: 1mm 0 2mm 0; }}
-.basmalah-text {{
-  font-family: 'AmiriQuranFont', 'Amiri Quran', 'AmiriBook', serif;
-  font-size: 20pt;
-  line-height: 1.65;
-  display: inline-block;
-  padding: 1pt 14pt;
-}}
-.front-h {{
-  text-align: center;
-  font-size: 14.5pt;
-  font-weight: 700;
-  line-height: 1.6;
-  margin: 2pt 0 3.5pt 0;
-}}
-.front-sub {{ font-size: 12pt; font-weight: 700; margin: 4pt 0 2pt 0; }}
-.front-p {{
-  font-size: 11pt;
-  line-height: 1.66;
-  text-align: justify;
-  text-align-last: right;
-  text-indent: 1.4em;
-  margin: 0 0 1.5pt 0;
-}}
-.classic-table {{
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 9.8pt;
-  line-height: 1.55;
-  margin-top: 4pt;
-}}
-.classic-table th {{
-  border-top: 1pt solid var(--ink);
-  border-bottom: 0.8pt solid var(--ink);
-  padding: 3pt 4pt;
-  font-weight: 700;
-  text-align: right;
-}}
-.classic-table td {{
-  border-bottom: 0.35pt solid #888;
-  padding: 2.5pt 4pt;
-  vertical-align: top;
-}}
-.classic-table td a, .toc-row a, .toc-book-row a, .ayah-idx-pages a {{
+.toc-row a, .toc-book-row a, .ayah-idx-pages a {{
   color: var(--ink);
   text-decoration: none;
 }}
@@ -561,10 +528,10 @@ header.top-bar {{
 }}
 .toc-col-left {{ padding-right: 5.5mm; }}
 .toc-book-row {{
-  font-size: 10.6pt;
+  font-size: 9.8pt;
   font-weight: 700;
   margin: 4pt 0 1.5pt 0;
-  line-height: 1.55;
+  line-height: 1.5;
   display: flex;
   align-items: baseline;
 }}
@@ -572,18 +539,18 @@ header.top-bar {{
 .toc-row {{
   display: flex;
   align-items: baseline;
-  font-size: 9.8pt;
-  line-height: 1.62;
+  font-size: 8.8pt;
+  line-height: 1.55;
   margin: 0.5pt 0;
 }}
-.toc-row-title {{ white-space: normal; max-width: 82%; }}
+.toc-row-title {{ white-space: normal; max-width: 85%; }}
 .toc-dots {{
   flex: 1;
   border-bottom: 1pt dotted #333;
   margin: 0 3pt 3pt 3pt;
   min-width: 8pt;
 }}
-.toc-pg {{ font-size: 9.8pt; white-space: nowrap; }}
+.toc-pg {{ font-size: 9pt; white-space: nowrap; }}
 .toc-section-center {{
   text-align: center;
   font-size: 11pt;
@@ -659,8 +626,8 @@ header.top-bar {{
 
 <aside id="sidebar">
   <div class="sb-head">
-    <div class="sb-title">الشَّرْحُ الْكَامِلُ عَلَى مَتْنِ أَبِي شُجَاعٍ</div>
-    <div class="sb-sub">طَبْعَةٌ مُحَقَّقَةٌ عَلَى نَسَقِ «فَتْحِ الْقَرِيبِ الْمُجِيبِ» — دَارُ ابْنِ حَزْمٍ (٣٢٠ صَفْحَةً)</div>
+    <div class="sb-title">تَيْسِيرُ الانْتِفَاعِ بِشَرْحِ مُخْتَصَرِ أَبِي شُجَاعٍ</div>
+    <div class="sb-sub">لِفَضِيلَةِ الشَّيْخِ أَحْمَدَ الْجَوْهَرِيِّ ({to_e(TOTAL_PAGES)} صَفْحَةً)</div>
   </div>
   <div class="sb-search">
     <input type="text" id="searchInput" placeholder="ابحث في الكتاب أو الفصول أو الآيات...">
@@ -671,15 +638,15 @@ header.top-bar {{
 <main>
   <header class="top-bar">
     <div class="tb-right">
-      <button class="tb-btn active" id="btnAllPages" onclick="showAllBookPages()">📚 عَرْضُ الْكِتَابِ كَامِلاً (٣٢٠ ص)</button>
-      <button class="tb-btn" id="btnFront" onclick="showPageRange(1, 6, 'الغلاف والمقدمات وجدول اللقاءات')">📜 الغلاف والمقدمات</button>
-      <button class="tb-btn" id="btnIndexes" onclick="showPageRange(315, 320, 'فهرس الآيات والفهرس العام')">🗂️ الفهارس العامة</button>
+      <button class="tb-btn active" id="btnAllPages" onclick="showAllBookPages()">📚 عَرْضُ الْكِتَابِ كَامِلاً ({to_e(TOTAL_PAGES)} ص)</button>
+      <button class="tb-btn" id="btnFront" onclick="showPageRange(1, {front_end_pg}, 'الغلاف والافتتاحية')">📜 الغلاف والافتتاحية</button>
+      <button class="tb-btn" id="btnIndexes" onclick="showPageRange({indexes_start_pg}, {TOTAL_PAGES}, 'فهرس الآيات والفهرس العام')">🗂️ الفهارس العامة</button>
       <button class="tb-btn" id="btnRawMode" onclick="toggleRawVerbatim()">📝 النص الحرفي الخام للدرس</button>
       <button class="tb-btn" id="btnVideo" onclick="toggleVideo()" style="display:none;">🎥 التسجيل الصوتي/المرئي</button>
     </div>
     <div class="tb-left">
       <span style="font-size:0.8rem;">انتقل لصفحة:</span>
-      <input type="number" min="1" max="320" value="1" id="pgJump" class="pg-jump-input" onchange="jumpToPage(this.value)">
+      <input type="number" min="1" max="{TOTAL_PAGES}" value="1" id="pgJump" class="pg-jump-input" onchange="jumpToPage(this.value)">
       <button class="tb-btn" onclick="cyclePaperTheme()">🎨 لون الورق</button>
       <button class="tb-btn" onclick="window.print()">🖨️ طباعة / PDF</button>
     </div>
@@ -696,6 +663,9 @@ header.top-bar {{
 
 <script>
 const LESSONS = {meta_json};
+const TOTAL_PAGES = {TOTAL_PAGES};
+const FRONT_END_PG = {front_end_pg};
+const INDEXES_START_PG = {indexes_start_pg};
 const EDIGITS = '٠١٢٣٤٥٦٧٨٩';
 const toE = (n) => String(n).replace(/[0-9]/g, d => EDIGITS[+d]);
 
@@ -710,12 +680,11 @@ function buildSidebar(filterQ = '') {{
   ul.innerHTML = '';
   const q = filterQ.trim();
 
-  // Item 0: Cover & Intro (Pages 1-6)
   if (!q) {{
     const liIntro = document.createElement('li');
     liIntro.className = 'sb-item' + (activeLessonIdx === -2 ? ' active' : '');
-    liIntro.innerHTML = '<span class="sb-badge">مقدمة</span><span style="flex:1;">الغلاف وترجمة المصنف وجدول الدروس</span><span class="sb-pg">ص ١–٦</span>';
-    liIntro.onclick = () => {{ activeLessonIdx = -2; showPageRange(1, 6, 'الغلاف والمقدمات'); buildSidebar(filterQ); }};
+    liIntro.innerHTML = '<span class="sb-badge">الافتتاحية</span><span style="flex:1;">الغلاف وبيانات الطبعة والبسملة</span><span class="sb-pg">ص ١–' + toE(FRONT_END_PG) + '</span>';
+    liIntro.onclick = () => {{ activeLessonIdx = -2; showPageRange(1, FRONT_END_PG, 'الغلاف والافتتاحية'); buildSidebar(filterQ); }};
     ul.appendChild(liIntro);
   }}
 
@@ -738,8 +707,8 @@ function buildSidebar(filterQ = '') {{
   if (!q) {{
     const liIdx = document.createElement('li');
     liIdx.className = 'sb-item' + (activeLessonIdx === -3 ? ' active' : '');
-    liIdx.innerHTML = '<span class="sb-badge">فهارس</span><span style="flex:1;">فهرس الآيات القرآنية والفهرس العام</span><span class="sb-pg">ص ٣١٥–٣٢٠</span>';
-    liIdx.onclick = () => {{ activeLessonIdx = -3; showPageRange(315, 320, 'الفهارس العامة'); buildSidebar(filterQ); }};
+    liIdx.innerHTML = '<span class="sb-badge">فهارس</span><span style="flex:1;">فهرس الآيات القرآنية والفهرس العام</span><span class="sb-pg">ص ' + toE(INDEXES_START_PG) + '–' + toE(TOTAL_PAGES) + '</span>';
+    liIdx.onclick = () => {{ activeLessonIdx = -3; showPageRange(INDEXES_START_PG, TOTAL_PAGES, 'الفهارس العامة'); buildSidebar(filterQ); }};
     ul.appendChild(liIdx);
   }}
 }}
@@ -763,7 +732,7 @@ function showPageRange(startP, endP, label) {{
   updateRawModeUI();
   document.getElementById('btnAllPages').classList.remove('active');
   document.getElementById('btnFront').classList.toggle('active', startP === 1);
-  document.getElementById('btnIndexes').classList.toggle('active', startP >= 314);
+  document.getElementById('btnIndexes').classList.toggle('active', startP >= INDEXES_START_PG);
   allPageEls.forEach(p => {{
     const pNum = parseInt(p.id.replace('pg-', ''), 10);
     p.style.display = (pNum >= startP && pNum <= endP) ? 'flex' : 'none';
@@ -790,7 +759,7 @@ function selectLesson(idx) {{
 }}
 
 function jumpToPage(val) {{
-  const pNum = Math.max(1, Math.min(320, parseInt(val, 10) || 1));
+  const pNum = Math.max(1, Math.min(TOTAL_PAGES, parseInt(val, 10) || 1));
   const target = document.getElementById('pg-' + pNum);
   if (!target) return;
   if (target.style.display === 'none') {{
@@ -816,7 +785,7 @@ function updateRawModeUI() {{
     vPanel.style.display = 'block';
     bookRoot.style.display = 'none';
     btn.classList.add('active');
-    btn.textContent = '📖 العودة لصفحات طبعة دار ابن حزم';
+    btn.textContent = '📖 العودة لصفحات الكتاب المنسق';
   }} else {{
     vPanel.style.display = 'none';
     bookRoot.style.display = 'flex';
@@ -848,7 +817,7 @@ function cyclePaperTheme() {{
   document.body.setAttribute('data-theme', themes[tIdx]);
 }}
 
-// Intercept internal #pg-N and #unit-... links so clicking TOC or Lesson Schedule jumps smoothly!
+// Intercept internal #pg-N and #unit-... links
 document.getElementById('book-root').addEventListener('click', (e) => {{
   const a = e.target.closest('a[href^="#"]');
   if (!a) return;
@@ -868,7 +837,6 @@ document.getElementById('searchInput').addEventListener('input', (e) => {{
   const q = e.target.value.trim();
   buildSidebar(q);
   if (!q) return;
-  // Also filter visible pages in book-root if in all-pages mode
   allPageEls.forEach(p => {{
     p.style.display = p.textContent.includes(q) ? 'flex' : 'none';
   }});
@@ -880,7 +848,13 @@ buildSidebar();
 </html>
 """
 
+os.makedirs(os.path.dirname(OUT_VIEWER_COPY), exist_ok=True)
 with open(OUT_HTML, "w", encoding="utf-8") as out_f:
     out_f.write(viewer_html)
+with open(OUT_VIEWER_COPY, "w", encoding="utf-8") as out_v:
+    out_v.write(viewer_html)
 
-print(f"Successfully wrote Dar Ibn Hazm interactive viewer ({len(viewer_html):,} bytes) to {OUT_HTML}")
+print(
+    f"Successfully wrote interactive viewer ({len(viewer_html):,} bytes, {TOTAL_PAGES} pages, "
+    f"indexes={indexes_start_pg}..{TOTAL_PAGES}) to {OUT_HTML} & {OUT_VIEWER_COPY}"
+)

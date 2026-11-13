@@ -1,9 +1,9 @@
 @@UNIT
 TOC_BOOK:
-TOC_FASL: فَصْلٌ فِي الاِغْتِسَالاَتِ الْمَسْنُونَةِ
+TOC_FASL: [ فَصْلٌ فِي الاِغْتِسَالاَتِ الْمَسْنُونَةِ ]
 LESSON_NOTE: اللقاء الثامن: فصل الاغتسالات المسنونة السبعة عشر
-HEADING: [ الاِغْتِسَالاَتُ الْمَسْنُونَةُ : غُسْلُ الْجُمُعَةِ ]
-SHARH_HEADER: فَصْلٌ فِي الاِغْتِسَالاَتِ الْمَسْنُونَةِ
+HEADING: [ فَصْلٌ فِي الاِغْتِسَالاَتِ الْمَسْنُونَةِ ]
+SHARH_HEADER:
 MATN: فَصْلٌ : وَالاِغْتِسَالاَتُ الْمَسْنُونَةُ سَبْعَةَ عَشَرَ غُسْلاً : غُسْلُ الْجُمُعَةِ ،
 FASL_END: no
 @@SHARH
@@ -25,7 +25,7 @@ FASL_END: no
 TOC_BOOK:
 TOC_FASL:
 LESSON_NOTE:
-HEADING: [ غُسْلُ الْعِيدَيْنِ ]
+HEADING:
 SHARH_HEADER:
 MATN: وَالْعِيدَيْنِ ،
 FASL_END: no
@@ -38,7 +38,7 @@ FASL_END: no
 TOC_BOOK:
 TOC_FASL:
 LESSON_NOTE:
-HEADING: [ غُسْلُ الاِسْتِسْقَاءِ وَالْخُسُوفِ وَالْكُسُوفِ ]
+HEADING:
 SHARH_HEADER:
 MATN: وَالاِسْتِسْقَاءِ ، وَالْخُسُوفِ ، وَالْكُسُوفِ ،
 FASL_END: no
@@ -51,7 +51,7 @@ FASL_END: no
 TOC_BOOK:
 TOC_FASL:
 LESSON_NOTE:
-HEADING: [ الْغُسْلُ مِنْ غَسْلِ الْمَيِّتِ ]
+HEADING:
 SHARH_HEADER:
 MATN: وَالْغُسْلُ مِنْ غَسْلِ الْمَيِّتِ ،
 FASL_END: no
@@ -64,7 +64,7 @@ FASL_END: no
 TOC_BOOK:
 TOC_FASL:
 LESSON_NOTE:
-HEADING: [ غُسْلُ الْكَافِرِ إِذَا أَسْلَمَ وَالْمَجْنُونِ وَالْمُغْمَى عَلَيْهِ ]
+HEADING:
 SHARH_HEADER:
 MATN: وَالْكَافِرِ إِذَا أَسْلَمَ ، وَالْمَجْنُونِ وَالْمُغْمَى عَلَيْهِ إِذَا أَفَاقَا ،
 FASL_END: no
@@ -79,7 +79,7 @@ FASL_END: no
 TOC_BOOK:
 TOC_FASL:
 LESSON_NOTE:
-HEADING: [ الْغُسْلُ عِنْدَ الإِحْرَامِ وَلِدُخُولِ مَكَّةَ ]
+HEADING:
 SHARH_HEADER:
 MATN: وَالْغُسْلُ عِنْدَ الإِحْرَامِ ، وَلِدُخُولِ مَكَّةَ ،
 FASL_END: no
@@ -92,7 +92,7 @@ FASL_END: no
 TOC_BOOK:
 TOC_FASL:
 LESSON_NOTE:
-HEADING: [ الْغُسْلُ لِلْوُقُوفِ بِعَرَفَةَ وَالْمَبِيتِ بِمُزْدَلِفَةَ وَرَمْيِ الْجِمَارِ ]
+HEADING:
 SHARH_HEADER:
 MATN: وَلِلْوُقُوفِ بِعَرَفَةَ ، وَلِلْمَبِيتِ بِمُزْدَلِفَةَ ، وَلِرَمْيِ الْجِمَارِ الثَّلاَثِ ،
 FASL_END: no
@@ -107,7 +107,7 @@ FASL_END: no
 TOC_BOOK:
 TOC_FASL:
 LESSON_NOTE:
-HEADING: [ الْغُسْلُ لِلطَّوَافِ وَالسَّعْيِ وَدُخُولِ مَدِينَةِ رَسُولِ اللهِ ﷺ ]
+HEADING:
 SHARH_HEADER:
 MATN: وَلِلطَّوَافِ ، وَلِلسَّعْيِ ، وَلِدُخُولِ مَدِينَةِ رَسُولِ اللهِ صَلَّى اللهُ عَلَيْهِ وَسَلَّمَ .
 FASL_END: yes

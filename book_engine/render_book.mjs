@@ -168,8 +168,8 @@ window.renderFullBook = async function(data) {
   }
 
   function getHeaderTitle(pNum, isIntroOrBack) {
-    if (pNum % 2 === 0) return '« اَلشَّرْحُ الْكَامِلُ عَلَى مَتْنِ أَبِي شُجَاعٍ »';
-    return 'لِفَضِيلَةِ الشَّيْخِ الدُّكْتُورِ أَحْمَدَ الْجَوْهَرِيِّ';
+    if (pNum % 2 === 0) return '« تَيْسِيرُ الانْتِفَاعِ بِشَرْحِ مُخْتَصَرِ أَبِي شُجَاعٍ »';
+    return 'لِفَضِيلَةِ الشَّيْخِ أَحْمَدَ الْجَوْهَرِيِّ';
   }
 
   function createPage({ framed = false, skipHeader = false, centerTitle = null } = {}) {
@@ -189,51 +189,49 @@ window.renderFullBook = async function(data) {
   }
 
   // ==================== 1. FRONT MATTER ====================
-  // Page 1: Title Page (p-001.png replica)
+  // Page 1: Title Page
   {
     const { bodyFrame } = createPage({ framed: true, skipHeader: true });
     bodyFrame.innerHTML =
       '<div class="frame-outer"><div class="frame-inner">' +
         '<div style="width:100%;">' +
-          '<div style="font-size: 20pt; font-weight: 700; line-height: 1.9;">' +
-            'اَلشَّرْحُ الْكَامِلُ<br>' +
-            '<span style="font-size:15pt; font-weight:400;">عَلَى</span><br>' +
-            '<span style="font-size:25pt;">أَلْفَاظِ مَتْنِ أَبِي شُجَاعٍ</span>' +
+          '<div style="font-size: 24pt; font-weight: 700; line-height: 1.85; margin-top: 3mm;">' +
+            'تَيْسِيرُ الانْتِفَاعِ<br>' +
+            '<span style="font-size:17pt; font-weight:400;">بِشَرْحِ</span><br>' +
+            '<span style="font-size:25pt;">مُخْتَصَرِ أَبِي شُجَاعٍ</span>' +
           '</div>' +
-          '<div style="font-size: 14.5pt; margin: 10pt 0 4pt 0;">المُسَمَّى بِـ « غَايَةِ الاِخْتِصَارِ وَالتَّقْرِيبِ »</div>' +
-          '<div style="font-size: 20pt; font-weight: 700; line-height: 1.85; margin-top: 4pt;">' +
-            'التَّفْرِيغُ الْحَرْفِيُّ الكَامِلُ لِدُرُوسِ<br>شَرْحِ غَايَةِ الاِخْتِصَارِ' +
+          '<div style="font-size: 14pt; margin: 10pt 0 4pt 0;">( الْمُسَمَّى بِـ « غَايَةِ الاِخْتِصَارِ وَالتَّقْرِيبِ » )</div>' +
+          '<div style="font-size: 17pt; font-weight: 700; line-height: 1.85; margin-top: 8pt;">' +
+            'التَّفْرِيغُ الْحَرْفِيُّ الْكَامِلُ لِدُرُوسِ شَرْحِ مَتْنِ أَبِي شُجَاعٍ' +
           '</div>' +
         '</div>' +
         '<div style="font-size: 12pt; line-height: 1.95; width:92%;">' +
-          '<div style="font-size: 13pt;">لِفَضِيلَةِ الشَّيْخِ الدُّكْتُورِ <strong>أَحْمَدَ الْجَوْهَرِيِّ عَبْدِ الْجَوَادِ</strong></div>' +
-          '<div style="font-size: 10.8pt;">(حَفِظَهُ اللهُ تَعَالَى وَنَفَعَ بِعِلْمِهِ)</div>' +
-          '<div style="font-size: 11pt; margin-top: 6pt;">وَالْمَتْنُ لِلْقَاضِي أَبِي شُجَاعٍ أَحْمَدَ بْنِ الْحُسَيْنِ الأَصْفَهَانِيِّ (٤٣٣ – ٥٩٣ هـ)</div>' +
-          '<div style="font-size: 10.6pt; margin-top: 10pt; border-top: 0.5pt solid #555; padding-top: 6pt;">' +
-            'مُعَدٌّ وَمُنَسَّقٌ كَامِلاً دُونَ اخْتِصَارٍ عَلَى طَرِيقَةِ طَبْعَةِ دَارِ ابْنِ حَزْمٍ<br>' +
-            'لِكِتَابِ « فَتْحِ الْقَرِيبِ الْمُجِيبِ »' +
+          '<div style="font-size: 13.5pt;">لِفَضِيلَةِ الشَّيْخِ <strong>أَحْمَدَ الْجَوْهَرِيِّ عَبْدِ الْجَوَادِ</strong></div>' +
+          '<div style="font-size: 11pt;">( حَفِظَهُ اللهُ تَعَالَى وَنَفَعَ بِعِلْمِهِ )</div>' +
+          '<div style="font-size: 11.2pt; margin-top: 10pt; border-top: 0.5pt solid #555; padding-top: 8pt;">' +
+            'وَالْمَتْنُ لِلْقَاضِي أَبِي شُجَاعٍ أَحْمَدَ بْنِ الْحُسَيْنِ الأَصْفَهَانِيِّ (٤٣٣ – ٥٩٣ هـ)' +
           '</div>' +
         '</div>' +
         '<div style="width:100%; display:flex; justify-content:space-between; font-size:10.8pt; font-weight:700; padding:0 4mm;">' +
+          '<span>كِتَابُ الطَّهَارَةِ وَكِتَابُ الصَّلاَةِ</span>' +
           '<span>٢٥ لِقَاءً صَوْتِيًّا كَامِلاً</span>' +
-          '<span>الطَّهَارَةُ وَالصَّلاَةُ وَالْجَنَائِزُ</span>' +
         '</div>' +
       '</div></div>';
   }
 
-  // Page 2: Colophon & Methodology Notice (p-002.png replica)
+  // Page 2: Colophon & Methodology Notice
   {
     const { bodyFrame } = createPage({ framed: true, skipHeader: true });
     bodyFrame.innerHTML =
       '<div class="frame-outer"><div class="frame-inner">' +
-        '<div style="font-size: 15pt; font-weight: 700; line-height: 2; margin-top: 10mm;">' +
-          'تَفْرِيغٌ حَرْفِيٌّ كَامِلٌ مُرَاجَعٌ<br>' +
-          '<span style="font-size: 12pt; font-weight: 400;">مِنْ دُرُوسِ السِّلْسِلَةِ الْفِقْهِيَّةِ الشَّافِعِيَّةِ</span><br>' +
+        '<div style="font-size: 15.5pt; font-weight: 700; line-height: 2; margin-top: 10mm;">' +
+          'تَيْسِيرُ الانْتِفَاعِ بِشَرْحِ مُخْتَصَرِ أَبِي شُجَاعٍ<br>' +
+          '<span style="font-size: 12pt; font-weight: 400;">تَفْرِيغٌ حَرْفِيٌّ كَامِلٌ مُرَاجَعٌ لِدُرُوسِ السِّلْسِلَةِ الْفِقْهِيَّةِ الشَّافِعِيَّةِ</span><br>' +
           '<span style="font-size: 11.5pt;">( اللِّقَاءَاتُ : ١ – ٢٥ )</span>' +
         '</div>' +
         '<div class="disclaimer-box">' +
           'أُعِدَّ هَذَا الْكِتَابُ بِإِثْبَاتِ كَلاَمِ الشَّيْخِ الشَّارِحِ كَامِلاً كَمَا أُلْقِيَ دُونَ حَذْفٍ أَوْ اخْتِصَارٍ ،<br>' +
-          'مَعَ رَبْطِ كُلِّ مَقْطَعٍ مِنْ مَتْنِ أَبِي شُجَاعٍ بِشَرْحِهِ مُبَاشَرَةً عَلَى طَرِيقَةِ طَبْعَةِ دَارِ ابْنِ حَزْمٍ' +
+          'مَعَ إِثْبَاتِ مَتْنِ أَبِي شُجَاعٍ مَضْبُوطاً بِالشَّكْلِ أَعْلَى الصَّفْحَةِ مَفْصُولاً بِخَطٍّ أُفُقِيٍّ عَنِ الشَّرْحِ أَسْفَلَهُ' +
         '</div>' +
         '<div style="font-size: 10.5pt; line-height: 1.9; width: 92%;">' +
           '<div><strong>رُمُوزُ الضَّبْطِ وَالتَّنْسِيقِ فِي هَذِهِ النُّسْخَةِ :</strong></div>' +
@@ -242,12 +240,12 @@ window.renderFullBook = async function(data) {
           '<div>﴿ ... ﴾ لِلآيَاتِ الْقُرْآنِيَّةِ &nbsp;•&nbsp; « ... » لِلأَحَادِيثِ النَّبَوِيَّةِ &nbsp;•&nbsp; [ ... ] لِعَنَاوِينِ الْفُصُولِ</div>' +
         '</div>' +
         '<div style="border-top: 0.7pt solid #111; padding-top: 4pt; width: 85%; font-size: 10.5pt;">' +
-          'الشَّرْحُ الْكَامِلُ عَلَى مَتْنِ أَبِي شُجَاعٍ — اللِّقَاءَاتُ الصَّوْتِيَّةُ الْمُفَرَّغَةُ' +
+          'تَيْسِيرُ الانْتِفَاعِ بِشَرْحِ مُخْتَصَرِ أَبِي شُجَاعٍ — لِفَضِيلَةِ الشَّيْخِ أَحْمَدَ الْجَوْهَرِيِّ' +
         '</div>' +
       '</div></div>';
   }
 
-  // Page 3: Basmalah Opening Plate (p-004.png replica)
+  // Page 3: Basmalah Opening Plate
   {
     const { bodyFrame } = createPage({ framed: true, skipHeader: true });
     bodyFrame.innerHTML =
@@ -259,54 +257,6 @@ window.renderFullBook = async function(data) {
       '</div></div>';
   }
 
-  // Page 4: Author Biography (p-005.png replica) & Study Note
-  {
-    const { bodyFrame } = createPage({ centerTitle: 'تَرْجَمَةُ الْمُصَنِّفِ وَمَنْهَجُ الْكِتَابِ' });
-    bodyFrame.innerHTML =
-      '<div class="basmalah-block"><span class="basmalah-text">بِسْمِ اللَّهِ الرَّحْمَـٰنِ الرَّحِيمِ</span></div>' +
-      '<p class="front-p" style="text-align:center; text-indent:0;">اَلْحَمْدُ لِلَّهِ رَبِّ الْعَالَمِينَ ، وَأَفْضَلُ الصَّلاَةِ وَأَتَمُّ التَّسْلِيمِ عَلَى سَيِّدِنَا مُحَمَّدٍ وَعَلَى آلِهِ وَصَحْبِهِ أَجْمَعِينَ .</p>' +
-      THREE_STARS_HTML +
-      '<div class="front-h">تَرْجَمَةُ الْقَاضِي أَبِي شُجَاعٍ أَحْمَدَ بْنِ الْحُسَيْنِ<br>الأَصْفَهَانِيِّ الشَّافِعِيِّ (٤٣٣ – ٥٩٣ هـ)</div>' +
-      '<p class="front-p">هُوَ الْقَاضِي شِهَابُ الْمِلَّةِ وَالدِّينِ أَبُو الطَّيِّبِ وَأَبُو شُجَاعٍ أَحْمَدُ بْنُ الْحُسَيْنِ بْنِ أَحْمَدَ الأَصْفَهَانِيُّ الْعَبَّادَانِيُّ الشَّافِعِيُّ ، وُلِدَ بِالْبَصْرَةِ سَنَةَ ثَلاَثٍ وَثَلاَثِينَ وَأَرْبَعِمِائَةٍ مِنَ الْهِجْرَةِ (٤٣٣ هـ = ١٠٤١ م) ، وَتَفَقَّهَ عَلَى مَذْهَبِ الإِمَامِ الشَّافِعِيِّ رَحِمَهُ اللهُ حَتَّى بَرَعَ فِيهِ وَصَارَ مِنْ أَعْيَانِ عُلَمَاءِ الْمَذْهَبِ وَمُدَرِّسِيهِ .</p>' +
-      '<p class="front-p">وَقَدْ دَرَّسَ مَذْهَبَ الشَّافِعِيِّ بِالْبَصْرَةِ نَيِّفاً وَأَرْبَعِينَ سَنَةً ، وَتَوَلَّى الْوِزَارَةَ سَنَةَ ٤٤٧ هـ فَنَشَرَ الْعَدْلَ وَالدِّينَ وَالرِّفْقَ بِالرَّعِيَّةِ ، ثُمَّ زَهِدَ فِي الدُّنْيَا فِي آخِرِ عُمُرِهِ وَأَقْبَلَ عَلَى الآخِرَةِ وَجَاوَرَ بِالْمَدِينَةِ الْمُنَوَّرَةِ يَكْنُسُ مَسْجِدَ رَسُولِ اللهِ ﷺ وَيَخْدُمُهُ حَتَّى تُوُفِّيَ بِهَا سَنَةَ ٥٩٣ هـ وَدُفِنَ قَرِيباً مِنَ الْحُجْرَةِ الشَّرِيفَةِ .</p>' +
-      '<p class="front-p">وَمِنْ أَشْهَرِ مُؤَلَّفَاتِهِ هَذَا الْمَتْنُ الْمُبَارَكُ « غَايَةُ الاِخْتِصَارِ » الْمَعْرُوفُ بِـ « مَتْنِ أَبِي شُجَاعٍ » وَ« التَّقْرِيبِ » ، الَّذِي تَلَقَّتْهُ الأُمَّةُ وَفُقَهَاءُ الشَّافِعِيَّةِ بِالْقَبُولِ وَالشَّرْحِ وَالْحِفْظِ عَلَى مَرِّ الْقُرُونِ .</p>' +
-      THREE_STARS_HTML +
-      '<div class="front-h" style="font-size:14pt;">مَنْهَجُ التَّفْرِيغِ وَالإِخْرَاجِ فِي هَذَا الْكِتَابِ</div>' +
-      '<p class="front-p">هَذَا السِّفْرُ يَجْمَعُ الدُّرُوسَ الْخَمْسَةَ وَالْعِشْرِينَ لِفَضِيلَةِ الشَّيْخِ الدُّكْتُورِ أَحْمَدَ الْجَوْهَرِيِّ عَبْدِ الْجَوَادِ (حَفِظَهُ اللهُ) فِي شَرْحِ قِسْمِ الْعِبَادَاتِ (كِتَابُ الطَّهَارَةِ وَكِتَابُ الصَّلاَةِ وَالْجَنَائِزِ) مِنْ مَتْنِ أَبِي شُجَاعٍ ، مُفَرَّغَةً تَفْرِيغاً حَرْفِيًّا كَامِلاً بِلاَ اخْتِصَارٍ وَلاَ تَصَرُّفٍ ، مَعَ إِصْلاَحِ السَّقَطَاتِ الإِمْلاَئِيَّةِ وَضَبْطِ الآيَاتِ وَالأَحَادِيثِ .</p>' +
-      '<p class="front-p">وَقَدْ رُتِّبَتِ الصَّفَحَاتُ طِبْقَ نَسَقِ طَبْعَةِ دَارِ ابْنِ حَزْمٍ لِكِتَابِ « فَتْحِ الْقَرِيبِ الْمُجِيبِ » : فَفِي أَعْلَى الصَّفْحَةِ الْمَقْطَعُ الْمَشْرُوحُ مِنَ الْمَتْنِ مَضْبُوطاً بِالشَّكْلِ ، يَفْصِلُهُ خَطٌّ أُفُقِيٌّ عَنِ الشَّرْحِ أَسْفَلَهُ ، مَعَ إِبْرَازِ أَلْفَاظِ الْمَتْنِ دَاخِلَ الشَّرْحِ بِالْخَطِّ الْعَرِيضِ لِيَسْهُلَ عَلَى الطَّالِبِ الْمُذَاكَرَةُ وَالْمُرَاجَعَةُ .</p>';
-  }
-
-  // Page 5+: Index of 25 Audio Lectures (will backfill exact PDF start pages after Pass 1!)
-  const lessonPageCells = {};
-  let scheduleStartPage = null;
-  {
-    const maxPerPage = 16;
-    for (let start = 0; start < data.lessons.length; start += maxPerPage) {
-      const slice = data.lessons.slice(start, start + maxPerPage);
-      const { bodyFrame, pNum } = createPage({ centerTitle: 'فَهْرَسُ السِّلْسِلَةِ الصَّوْتِيَّةِ وَاللِّقَاءَاتِ' });
-      if (scheduleStartPage === null) scheduleStartPage = pNum;
-      const titleHtml = start === 0
-        ? '<div class="front-h" style="margin-bottom:4pt;">جَدْوَلُ اللِّقَاءَاتِ الصَّوْتِيَّةِ الْمُفَرَّغَةِ</div>'
-        : '<div class="front-h" style="font-size:13pt; margin-bottom:4pt;">تَابِعُ جَدْوَلِ اللِّقَاءَاتِ الصَّوْتِيَّةِ</div>';
-      const rows = slice.map(l => {
-        const spanId = 'l-pg-' + l.lesson_num;
-        lessonPageCells[l.lesson_num] = spanId;
-        const cleanTitle = l.title.replace(/^اللقاء [^:]+:\s*/, '');
-        return '<tr>' +
-          '<td style="text-align:center; width:10mm; font-weight:700;">' + toE(l.lesson_num) + '</td>' +
-          '<td><a href="#unit-' + esc(l.first_unit_id) + '">' + esc(cleanTitle) + '</a></td>' +
-          '<td style="text-align:center; width:15mm;">' + toE(l.duration_min) + ' د</td>' +
-          '<td style="text-align:center; width:14mm; font-weight:700;" id="' + spanId + '">...</td>' +
-        '</tr>';
-      }).join('');
-      bodyFrame.innerHTML = titleHtml +
-        '<table class="classic-table">' +
-          '<thead><tr><th style="text-align:center;">م</th><th>مَوْضُوعُ اللِّقَاءِ</th><th style="text-align:center;">الْمُدَّةُ</th><th style="text-align:center;">الصَّفْحَةُ</th></tr></thead>' +
-          '<tbody>' + rows + '</tbody>' +
-        '</table>';
-    }
-  }
-
   // ==================== 2. CORE SPLIT-PAGE BODY LAYOUT ====================
   const tocEntries = [];
   const lessonStartPage = {};
@@ -314,6 +264,23 @@ window.renderFullBook = async function(data) {
 
   let curPageObj = null;
   let footnoteNum = 0;
+
+  function openPrefacePage(centerOverride = null) {
+    const p = createPage({ centerTitle: centerOverride });
+    p.bodyFrame.innerHTML =
+      '<div class="sharh-zone"></div>' +
+      '<div class="footnote-area" style="display:none;"><div class="footnote-rule"></div><div class="footnote-text"></div></div>';
+    p.matnZone = null;
+    p.sharhZone = p.bodyFrame.querySelector('.sharh-zone');
+    p.footnoteArea = p.bodyFrame.querySelector('.footnote-area');
+    p.footnoteText = p.bodyFrame.querySelector('.footnote-text');
+    p.hasFootnote = false;
+    p.unitCountOnPage = 0;
+    p.endsWithStars = false;
+    p.isContPage = false;
+    p.isPrefacePage = true;
+    return p;
+  }
 
   function openBodyPage(centerOverride = null) {
     const p = createPage({ centerTitle: centerOverride });
@@ -330,6 +297,7 @@ window.renderFullBook = async function(data) {
     p.unitCountOnPage = 0;
     p.endsWithStars = false;
     p.isContPage = false;
+    p.isPrefacePage = false;
     return p;
   }
 
@@ -342,24 +310,26 @@ window.renderFullBook = async function(data) {
   }
 
   function buildMatnHtmlForUnit(u, isContinuationPage = false) {
-    let h = '';
     if (isContinuationPage) {
-      const words = u.matn_raw.replace(/\\s+/g, ' ').trim().split(' ');
-      const snippet = words.length > 22 ? words.slice(0, 22).join(' ') + '...' : u.matn_raw.trim();
-      h += '<p class="matn-cont-context"><span class="matn-cont-tag">[ تَابِعُ مَوْضِعِ الشَّرْحِ ] :</span> «' + esc(snippet) + '»</p>';
-      return h;
+      return '<div class="matn-cont-dots">............................................</div>';
     }
+    let h = '';
+    let anchorPlaced = false;
     if (u.toc_book) {
       h += '<div class="matn-book-title" id="unit-' + esc(u.id) + '">' + esc(u.toc_book) + '</div>';
+      anchorPlaced = true;
     }
-    if (u.toc_fasl || u.unit_num === 1) {
-      const anchorAttr = !u.toc_book ? ' id="unit-' + esc(u.id) + '"' : '';
-      h += '<div class="matn-bracket-title"' + anchorAttr + '>' + esc(u.heading) + '</div>';
-    } else {
-      h += '<div class="matn-sub-label" id="unit-' + esc(u.id) + '">' + esc(u.heading) + '</div>';
+    if (u.toc_fasl) {
+      const anchorAttr = !anchorPlaced ? ' id="unit-' + esc(u.id) + '"' : '';
+      h += '<div class="matn-bracket-title"' + anchorAttr + '>' + esc(u.toc_fasl) + '</div>';
+      anchorPlaced = true;
     }
-    for (const line of u.matn_lines) {
-      h += '<p class="matn-p">' + line + '</p>';
+    for (let i = 0; i < u.matn_lines.length; i++) {
+      const line = u.matn_lines[i];
+      const anchorAttr = (!anchorPlaced && i === 0) ? ' id="unit-' + esc(u.id) + '"' : '';
+      const isBasmalah = (line.trim() === 'بِسْمِ اللهِ الرَّحْمَنِ الرَّحِيمِ');
+      h += '<p class="' + (isBasmalah ? 'matn-basmalah' : 'matn-p') + '"' + anchorAttr + '>' + line + '</p>';
+      anchorPlaced = true;
     }
     if (u.fasl_end) {
       h += THREE_STARS_HTML;
@@ -390,34 +360,42 @@ window.renderFullBook = async function(data) {
     }
   }
 
-  curPageObj = openBodyPage();
+  function openOverflowPage(u) {
+    const np = u.is_preface ? openPrefacePage() : openBodyPage();
+    np.isContPage = true;
+    if (!u.is_preface) {
+      np.matnZone.innerHTML = buildMatnHtmlForUnit(u, true);
+    }
+    np.unitCountOnPage++;
+    return np;
+  }
+
+  curPageObj = (data.units.length > 0 && data.units[0].is_preface) ? openPrefacePage() : openBodyPage();
 
   for (let ui = 0; ui < data.units.length; ui++) {
     if (ui % 8 === 0) await new Promise(r => setTimeout(r, 0));
     const u = data.units[ui];
-    const matnHtml = buildMatnHtmlForUnit(u, false);
+    const matnHtml = u.is_preface ? '' : buildMatnHtmlForUnit(u, false);
 
-    // Never start a major new كِتَاب mid-page (Kitab starts cleanly on a fresh page like Dar Ibn Hazm p-024/p-066!)
-    if (curPageObj.unitCountOnPage > 0 && u.toc_book) {
-      curPageObj = openBodyPage();
+    // Start fresh page on book transitions or preface <-> Matn transitions
+    if (curPageObj.unitCountOnPage > 0 && (u.toc_book || Boolean(u.is_preface) !== Boolean(curPageObj.isPrefacePage))) {
+      curPageObj = u.is_preface ? openPrefacePage() : openBodyPage();
     }
 
-    // Decide whether U can stack on curPageObj (like p-029/p-070) OR needs a fresh page!
+    // Decide whether U can stack on curPageObj OR needs a fresh page
     if (curPageObj.unitCountOnPage > 0) {
-      const savedMatn = curPageObj.matnZone.innerHTML;
+      const savedMatn = curPageObj.matnZone ? curPageObj.matnZone.innerHTML : '';
       const savedSharh = curPageObj.sharhZone.innerHTML;
       const savedFnDisplay = curPageObj.footnoteArea.style.display;
       const savedFnHtml = curPageObj.footnoteText.innerHTML;
       const savedFnNum = footnoteNum;
 
-      // In Dar Ibn Hazm p-029 / p-070, stacked units are separated by THREE_STARS in BOTH Matn and Sharh (if prev unit didn't emit stars)
       if (!curPageObj.endsWithStars) {
-        curPageObj.matnZone.insertAdjacentHTML('beforeend', THREE_STARS_HTML);
+        if (curPageObj.matnZone) curPageObj.matnZone.insertAdjacentHTML('beforeend', THREE_STARS_HTML);
         curPageObj.sharhZone.insertAdjacentHTML('beforeend', THREE_STARS_HTML);
       }
-      curPageObj.matnZone.insertAdjacentHTML('beforeend', matnHtml);
-      if (u.sharh_header) {
-        curPageObj.sharhZone.insertAdjacentHTML('beforeend', '<div class="sharh-center-title">' + esc(u.sharh_header) + '</div>');
+      if (curPageObj.matnZone && matnHtml) {
+        curPageObj.matnZone.insertAdjacentHTML('beforeend', matnHtml);
       }
       if (u.lesson_note) addFootnoteToPage(curPageObj, u.lesson_note);
 
@@ -432,21 +410,21 @@ window.renderFullBook = async function(data) {
       const canStack = fitsPage(curPageObj);
 
       // Revert tentative DOM
-      curPageObj.matnZone.innerHTML = savedMatn;
+      if (curPageObj.matnZone) curPageObj.matnZone.innerHTML = savedMatn;
       curPageObj.sharhZone.innerHTML = savedSharh;
       curPageObj.footnoteArea.style.display = savedFnDisplay;
       curPageObj.footnoteText.innerHTML = savedFnHtml;
       footnoteNum = savedFnNum;
 
       if (!canStack) {
-        curPageObj = openBodyPage();
+        curPageObj = u.is_preface ? openPrefacePage() : openBodyPage();
       } else if (!curPageObj.endsWithStars) {
-        curPageObj.matnZone.insertAdjacentHTML('beforeend', THREE_STARS_HTML);
+        if (curPageObj.matnZone) curPageObj.matnZone.insertAdjacentHTML('beforeend', THREE_STARS_HTML);
         curPageObj.sharhZone.insertAdjacentHTML('beforeend', THREE_STARS_HTML);
       }
     }
 
-    // Now U genuinely starts on curPageObj! Record TOC & lesson start page
+    // Record TOC & lesson start page
     if (!(u.lesson_num in lessonStartPage)) {
       lessonStartPage[u.lesson_num] = curPageObj.pNum;
     }
@@ -457,9 +435,10 @@ window.renderFullBook = async function(data) {
       tocEntries.push({ kind: 'fasl', title: u.toc_fasl, page: curPageObj.pNum, anchor: 'unit-' + u.id });
     }
 
-    curPageObj.matnZone.insertAdjacentHTML('beforeend', matnHtml);
-    if (u.sharh_header) {
-      curPageObj.sharhZone.insertAdjacentHTML('beforeend', '<div class="sharh-center-title">' + esc(u.sharh_header) + '</div>');
+    if (u.is_preface) {
+      curPageObj.sharhZone.insertAdjacentHTML('beforeend', '<div class="preface-h" id="unit-' + esc(u.id) + '">' + esc(u.toc_fasl || 'مُقَدِّمَةُ الْكِتَابِ') + '</div>');
+    } else {
+      curPageObj.matnZone.insertAdjacentHTML('beforeend', matnHtml);
     }
     if (u.lesson_note) {
       addFootnoteToPage(curPageObj, u.lesson_note);
@@ -499,24 +478,15 @@ window.renderFullBook = async function(data) {
           if (best <= 0 || (priorParaCount > 0 && best < 14)) {
             if (!curPageObj.isContPage || priorParaCount > 0) {
               curPageObj.sharhZone.removeChild(pEl);
-              curPageObj = openBodyPage();
-              curPageObj.isContPage = true;
-              curPageObj.matnZone.innerHTML = buildMatnHtmlForUnit(u, true);
-              curPageObj.unitCountOnPage++;
+              curPageObj = openOverflowPage(u);
               continue;
             } else {
               best = Math.min(12, atoms.length);
             }
           }
 
-          // If tail would be an orphan (< 8 words) and we fit at least 22 words on this page, pull back 8 words so next page gets >= 8 words!
-          if (atoms.length - best > 0 && atoms.length - best < 8 && best >= 22) {
-            best = atoms.length - 8;
-          }
-
           const headAtoms = atoms.slice(0, best);
           const tailAtoms = atoms.slice(best);
-          if (tailAtoms.length > 0) pEl.classList.add('split-tail');
           pEl.innerHTML = joinAtoms(headAtoms);
           recordAyahsOnPage(pEl.innerHTML, curPageObj.pNum);
 
@@ -524,10 +494,7 @@ window.renderFullBook = async function(data) {
           isCont = true;
 
           if (atoms.length > 0) {
-            curPageObj = openBodyPage();
-            curPageObj.isContPage = true;
-            curPageObj.matnZone.innerHTML = buildMatnHtmlForUnit(u, true);
-            curPageObj.unitCountOnPage++;
+            curPageObj = openOverflowPage(u);
           }
         }
       }
@@ -551,14 +518,8 @@ window.renderFullBook = async function(data) {
     }
   }
 
-  // Backfill Front-Matter lesson table page numbers!
-  for (const [lnum, pNum] of Object.entries(lessonStartPage)) {
-    const spanEl = document.getElementById('l-pg-' + lnum);
-    if (spanEl) spanEl.textContent = toE(pNum);
-  }
-
   // ==================== 3. BACK MATTER INDEXES ====================
-  // 3A. فهرس الآيات القرآنية (p-351.png style)
+  // 3A. فهرس الآيات القرآنية
   let ayahStartPage = null;
   if (ayahIndexMap.size > 0) {
     const ayahList = Array.from(ayahIndexMap.entries());
@@ -591,11 +552,9 @@ window.renderFullBook = async function(data) {
     }
   }
 
-  // 3B. الفهرس العام Two-Column General Index (p-366..p-368.png exact replica!)
+  // 3B. الفهرس العام Two-Column General Index
   const firstTocPg = pageCounter + 1;
   const allTocEntries = [
-    { kind: 'fasl', title: 'تَرْجَمَةُ الْمُصَنِّفِ وَمَنْهَجُ الْكِتَابِ', page: 4, anchor: 'pg-4' },
-    { kind: 'fasl', title: 'جَدْوَلُ اللِّقَاءَاتِ الصَّوْتِيَّةِ الْمُفَرَّغَةِ', page: scheduleStartPage || 5, anchor: 'pg-' + (scheduleStartPage || 5) },
     ...tocEntries,
     { kind: 'center', title: 'اَلْفَهَارِسُ', page: null, anchor: '' },
   ];
@@ -631,8 +590,9 @@ window.renderFullBook = async function(data) {
                         '<span class="toc-dots"></span>' +
                         '<span class="toc-pg"><a href="#' + esc(e.anchor) + '">' + toE(e.page) + '</a></span>';
       } else {
+        const nbTitle = esc(e.title).replace(/^\[\s+/, '[\u00A0').replace(/\s+\]$/, '\u00A0]');
         div.className = 'toc-row';
-        div.innerHTML = '<span class="toc-row-title"><a href="#' + esc(e.anchor) + '">' + esc(e.title) + '</a></span>' +
+        div.innerHTML = '<span class="toc-row-title"><a href="#' + esc(e.anchor) + '">' + nbTitle + '</a></span>' +
                         '<span class="toc-dots"></span>' +
                         '<span class="toc-pg"><a href="#' + esc(e.anchor) + '">' + toE(e.page) + '</a></span>';
       }
