@@ -156,8 +156,10 @@ window.renderFullBook = async function(data, edition) {
         if (!p) continue;
         if (/^\\s+$/.test(p)) {
           if (atoms.length) atoms[atoms.length - 1].trail = ' ';
+        } else if (atoms.length && !atoms[atoms.length - 1].trail && /^[.،؛:؟!»)\\]]+$/.test(p)) {
+          atoms[atoms.length - 1].postPunct = (atoms[atoms.length - 1].postPunct || '') + p;
         } else {
-          atoms.push({ text: p, wrap: wrap, trail: '' });
+          atoms.push({ text: p, wrap: wrap, trail: '', postPunct: '' });
         }
       }
     }
@@ -175,15 +177,15 @@ window.renderFullBook = async function(data, edition) {
               atoms[atoms.length - 1].suffixRef = refTxt;
               atoms[atoms.length - 1].trail = '';
             } else {
-              atoms.push({ text: refTxt, wrap: [...wrap, { tag, cls }], trail: '' });
+              atoms.push({ text: refTxt, wrap: [...wrap, { tag, cls }], trail: '', postPunct: '' });
             }
           }
           return;
         }
         if (clsList.includes('ayah')) {
           const wordsCount = node.textContent.trim().split(/\\s+/).filter(Boolean).length;
-          if (wordsCount <= 42 && wrap.length === 0) {
-            atoms.push({ text: node.textContent.trim(), wrap: [{ tag, cls }], trail: '' });
+          if (wordsCount <= 42) {
+            atoms.push({ text: node.textContent.trim(), wrap: [...wrap, { tag, cls }], trail: '', postPunct: '' });
             return;
           }
         }
@@ -225,6 +227,13 @@ window.renderFullBook = async function(data, edition) {
       if (a.suffixRef) {
         closeAll(0);
         out += '\\u00A0<span class="ayah-ref">' + esc(a.suffixRef) + '</span>';
+      }
+      if (a.postPunct) {
+        if (openStack.some(w => w.cls && w.cls.includes('ayah'))) {
+          let closeIdx = openStack.findIndex(w => w.cls && w.cls.includes('ayah'));
+          closeAll(closeIdx);
+        }
+        out += esc(a.postPunct);
       }
       if (i < atoms.length - 1) out += a.trail;
     }
@@ -480,8 +489,18 @@ window.renderFullBook = async function(data, edition) {
     const glosses = Array.isArray(u.glosses) ? u.glosses : [];
     const rawLines = u.matn_lines.map(l => String(l));
     const glossMetaMap = new Map();
+    let hasLeadingDots = false;
+    let hasTrailingDots = false;
 
     if (!(rawLines.length === 1 && rawLines[0].trim() === '............................................')) {
+      if (rawLines.length > 0 && /^\\.{5,}\\s*/.test(rawLines[0])) {
+        hasLeadingDots = true;
+        rawLines[0] = rawLines[0].replace(/^\\.{5,}\\s*/, '').trim();
+      }
+      if (rawLines.length > 0 && /\\s*\\.{5,}$/.test(rawLines[rawLines.length - 1])) {
+        hasTrailingDots = true;
+        rawLines[rawLines.length - 1] = rawLines[rawLines.length - 1].replace(/\\s*\\.{5,}$/, '').trim();
+      }
       const placements = [];
       const seenIds = new Set();
       const seenNorms = new Set();
@@ -525,8 +544,38 @@ window.renderFullBook = async function(data, edition) {
         .replace(/(\\[[^\\]:]+:\\s*[٠-٩\\-]+\\])/g, '<span class="ayah-ref">$1</span>');
     };
 
-    const paraHtmls = rawLines.map(ln => wrapMatnAyahs(ln));
-    return { paraHtmls, glossMetaMap };
+    const paraHtmls = rawLines.filter(ln => ln.length > 0).map(ln => wrapMatnAyahs(ln));
+    return { paraHtmls, glossMetaMap, hasLeadingDots, hasTrailingDots };
+  }
+
+  function finalizeSplitPara(pEl, atoms, best, allowJustify) {
+    let splitIdx = best;
+    if (atoms.length - splitIdx > 0 && atoms.length - splitIdx <= 5 && splitIdx >= 2) {
+      pEl.innerHTML = joinAtoms(atoms.slice(0, splitIdx));
+      const hAt = pEl.getBoundingClientRect().height;
+      let b2 = splitIdx - 1;
+      while (b2 >= 1) {
+        pEl.innerHTML = joinAtoms(atoms.slice(0, b2));
+        if (pEl.getBoundingClientRect().height < hAt - 2) {
+          splitIdx = b2;
+          break;
+        }
+        b2--;
+      }
+    }
+    const headAtoms = atoms.slice(0, splitIdx);
+    const tailAtoms = atoms.slice(splitIdx);
+    pEl.innerHTML = joinAtoms(headAtoms);
+    if (allowJustify && tailAtoms.length > 0) {
+      const range = document.createRange();
+      range.selectNodeContents(pEl);
+      const rects = range.getClientRects();
+      const lr = rects.length ? rects[rects.length - 1] : null;
+      if (lr && pEl.clientWidth > 0 && lr.width >= pEl.clientWidth * 0.62) {
+        pEl.classList.add('split-head');
+      }
+    }
+    return { headAtoms, tailAtoms };
   }
 
   function applyMatnGlossFootnotes(pageObj, glossMetaMap) {
@@ -638,6 +687,7 @@ window.renderFullBook = async function(data, edition) {
 
     let extraMatnChunks = [];
     let unitGlossMetaMap = null;
+    let hasTrailingDots = false;
 
     if (u.is_preface) {
       curPageObj.sharhZone.insertAdjacentHTML('beforeend',
@@ -658,7 +708,11 @@ window.renderFullBook = async function(data, edition) {
       renderPageFootnotes(curPageObj);
       curPageObj.unitCountOnPage++;
     } else {
-      const { paraHtmls, glossMetaMap } = prepareUnitMatnData(u);
+      const mPrep = prepareUnitMatnData(u);
+      const paraHtmls = mPrep.paraHtmls;
+      const glossMetaMap = mPrep.glossMetaMap;
+      const hasLeadingDots = mPrep.hasLeadingDots;
+      hasTrailingDots = mPrep.hasTrailingDots;
       unitGlossMetaMap = glossMetaMap;
       const hasSharh = (u.sharh_paras_html && u.sharh_paras_html.length > 0);
       const maxMatnPx = hasSharh ? Math.round(curPageObj.bodyFrame.clientHeight * 0.64) : curPageObj.bodyFrame.clientHeight - 8;
@@ -675,15 +729,19 @@ window.renderFullBook = async function(data, edition) {
         headerPrefixHtml += '<div class="matn-bracket-title"' + anchorAttr + '>' + esc(u.toc_fasl) + '</div>';
         anchorPlaced = true;
       }
+      if (hasLeadingDots) {
+        headerPrefixHtml += '<div class="matn-cont-dots">............................................</div>';
+      }
 
       const buildFullCandidate = () => {
         let h = headerPrefixHtml;
         for (let i = 0; i < paraHtmls.length; i++) {
           const anchorAttr = (!anchorPlaced && i === 0) ? ' id="unit-' + esc(u.id) + '"' : '';
-          const rawLine = u.matn_lines[i] || '';
-          const isBasmalah = /^بِسْمِ\\s+اللَّ?هِ\\s+الرَّحْم[َٰـ]*نِ\\s+الرَّحِيمِ$/.test(rawLine.trim());
+          const plainM = paraHtmls[i].replace(/<[^>]+>/g, '').trim();
+          const isBasmalah = /^بِسْمِ\\s+اللَّ?هِ\\s+الرَّحْم[َٰـ]*نِ\\s+الرَّحِيمِ$/.test(plainM);
           h += '<p class="' + (isBasmalah ? 'matn-basmalah' : 'matn-p') + '"' + anchorAttr + '>' + paraHtmls[i] + '</p>';
         }
+        if (hasTrailingDots) h += '<div class="matn-cont-dots">............................................</div>';
         if (u.fasl_end) h += THREE_STARS_HTML;
         return h;
       };
@@ -697,8 +755,8 @@ window.renderFullBook = async function(data, edition) {
       } else {
         // Paginate Matn lines/atoms cleanly across pages!
         let mItems = paraHtmls.map((ph, idx) => {
-          const rawLine = u.matn_lines[idx] || '';
-          const isBasmalah = /^بِسْمِ\\s+اللَّ?هِ\\s+الرَّحْم[َٰـ]*نِ\\s+الرَّحِيمِ$/.test(rawLine.trim());
+          const plainM = ph.replace(/<[^>]+>/g, '').trim();
+          const isBasmalah = /^بِسْمِ\\s+اللَّ?هِ\\s+الرَّحْم[َٰـ]*نِ\\s+الرَّحِيمِ$/.test(plainM);
           return {
             atoms: tokenizeHtml(ph),
             isBasmalah,
@@ -745,13 +803,19 @@ window.renderFullBook = async function(data, edition) {
                 break;
               }
               if (best <= 0) best = Math.min(20, cur.atoms.length);
-              pEl.innerHTML = joinAtoms(cur.atoms.slice(0, best));
+              const splitRes = finalizeSplitPara(pEl, cur.atoms, best, !cur.isBasmalah);
               applyMatnGlossFootnotes(targetPage, glossMetaMap);
-              cur.atoms = cur.atoms.slice(best);
+              cur.atoms = splitRes.tailAtoms;
               cur.isCont = true;
               cur.anchorAttr = '';
               if (cur.atoms.length === 0) mItems.shift();
               break;
+            }
+          }
+          if (mItems.length === 0 && hasTrailingDots) {
+            targetPage.matnZone.insertAdjacentHTML('beforeend', '<div class="matn-cont-dots">............................................</div>');
+            if (!matnFitsQuota(targetPage, quotaPx + 24, hasSharh)) {
+              targetPage.matnZone.lastElementChild.remove();
             }
           }
           if (mItems.length === 0 && u.fasl_end) {
@@ -765,9 +829,7 @@ window.renderFullBook = async function(data, edition) {
             targetPage.unitCountOnPage++;
             isFirstMatnPage = false;
             if (mItems.length > 0) {
-              // Create detached temporary container or save remaining chunks for subsequent pages
-              targetPage = { dummy: true, matnZone: document.createElement('div'), bodyFrame: curPageObj.bodyFrame, sharhZone: { clientHeight: 150 }, pageGlossaryIds: new Set(), pageGlossaryTerms: new Set(), glossaryNotes: [], hasFootnote: false, footnoteArea: { style: {} }, footnoteText: {} };
-              // Better: accumulate remaining Matn paragraph chunks directly when opening each continuation page!
+              // Accumulate remaining Matn chunks for continuation pages
               extraMatnChunks = mItems;
               break;
             }
@@ -811,12 +873,18 @@ window.renderFullBook = async function(data, edition) {
             break;
           }
           if (best <= 0) best = Math.min(20, cur.atoms.length);
-          pEl.innerHTML = joinAtoms(cur.atoms.slice(0, best));
+          const splitRes = finalizeSplitPara(pEl, cur.atoms, best, !cur.isBasmalah);
           applyMatnGlossFootnotes(np, unitGlossMetaMap);
-          cur.atoms = cur.atoms.slice(best);
+          cur.atoms = splitRes.tailAtoms;
           cur.isCont = true;
           if (cur.atoms.length === 0) extraMatnChunks.shift();
           break;
+        }
+      }
+      if (extraMatnChunks.length === 0 && hasTrailingDots) {
+        np.matnZone.insertAdjacentHTML('beforeend', '<div class="matn-cont-dots">............................................</div>');
+        if (np.bodyFrame.scrollHeight > np.bodyFrame.clientHeight || np.sharhZone.clientHeight < 75) {
+          np.matnZone.lastElementChild.remove();
         }
       }
       if (extraMatnChunks.length === 0 && u.fasl_end) {
@@ -844,12 +912,14 @@ window.renderFullBook = async function(data, edition) {
 
     for (let pi = 0; pi < u.sharh_paras_html.length; pi++) {
       let atoms = tokenizeHtml(u.sharh_paras_html[pi]);
+      const plainP = u.sharh_paras_html[pi].replace(/<[^>]+>/g, '').trim();
+      const isPoemBayt = /^[^<>\\n]{8,65}\\s+\\.\\.\\.\\s+[^<>\\n]{8,65}$/.test(plainP);
       let isCont = false;
       const isLastParaOfUnit = (pi === u.sharh_paras_html.length - 1);
 
       while (atoms.length > 0) {
         const pEl = document.createElement('p');
-        pEl.className = 'sharh-p' + (isCont ? ' cont' : '');
+        pEl.className = 'sharh-p' + (isPoemBayt ? ' poem-bayt' : '') + (isCont ? ' cont' : '');
         pEl.innerHTML = joinAtoms(atoms);
         curPageObj.sharhZone.appendChild(pEl);
 
@@ -857,8 +927,8 @@ window.renderFullBook = async function(data, edition) {
           recordAyahsOnPage(pEl.innerHTML, curPageObj.pNum);
           atoms = [];
         } else {
-          // Micro-fit pass: prevent tiny <= 28-word orphan overflow on the last paragraph of a unit
-          if (isLastParaOfUnit && atoms.length <= 28 && !curPageObj.sharhZone.classList.contains('tight-fit')) {
+          // Micro-fit pass: prevent tiny <= 34-word orphan overflow on the last paragraph of a unit
+          if (isLastParaOfUnit && atoms.length <= 34 && !curPageObj.sharhZone.classList.contains('tight-fit')) {
             curPageObj.sharhZone.classList.add('tight-fit');
             if (fitsPage(curPageObj)) {
               recordAyahsOnPage(pEl.innerHTML, curPageObj.pNum);
@@ -881,7 +951,7 @@ window.renderFullBook = async function(data, edition) {
           }
 
           const priorParaCount = curPageObj.sharhZone.querySelectorAll('p.sharh-p').length - 1;
-          if (best <= 0 || (priorParaCount > 0 && best < 3)) {
+          if (best <= 0 || (priorParaCount > 0 && best < 3) || (isPoemBayt && best < atoms.length)) {
             if (!curPageObj.isContPage || priorParaCount > 0) {
               curPageObj.sharhZone.removeChild(pEl);
               curPageObj = advanceOverflowPage();
@@ -891,11 +961,10 @@ window.renderFullBook = async function(data, edition) {
             }
           }
 
-          const headAtoms = atoms.slice(0, best);
-          const tailAtoms = atoms.slice(best);
+          const preliminaryTailLen = atoms.length - best;
 
-          // If splitting would leave a tiny <= 26 word tail on the last paragraph, try tight-fit!
-          if (isLastParaOfUnit && tailAtoms.length <= 26 && !curPageObj.sharhZone.classList.contains('tight-fit')) {
+          // If splitting would leave a <= 34 word tail on the last paragraph, try tight-fit!
+          if (isLastParaOfUnit && preliminaryTailLen <= 34 && !curPageObj.sharhZone.classList.contains('tight-fit')) {
             pEl.innerHTML = joinAtoms(atoms);
             curPageObj.sharhZone.classList.add('tight-fit');
             if (fitsPage(curPageObj)) {
@@ -906,10 +975,10 @@ window.renderFullBook = async function(data, edition) {
             curPageObj.sharhZone.classList.remove('tight-fit');
           }
 
-          pEl.innerHTML = joinAtoms(headAtoms);
+          const splitRes = finalizeSplitPara(pEl, atoms, best, !isPoemBayt);
           recordAyahsOnPage(pEl.innerHTML, curPageObj.pNum);
 
-          atoms = tailAtoms;
+          atoms = splitRes.tailAtoms;
           isCont = true;
 
           if (atoms.length > 0) {

@@ -989,9 +989,13 @@ def build_docx(edition: str, mode: str = "verbatim"):
                     add_run(p, child.text_content().strip(), 16.5, pal["accent"], bold=True)
                 elif "sharh-p" in cls:
                     is_cont = ("cont" in cls)
+                    is_poem = ("poem-bayt" in cls)
                     p = doc.add_paragraph()
-                    set_para_rtl(p, align=WD_ALIGN_PARAGRAPH.JUSTIFY, line_pt=19.4,
-                                 sb_pt=0, sa_pt=1.0, indent_first_pt=(0 if is_cont else 15.5),
+                    set_para_rtl(p, align=(WD_ALIGN_PARAGRAPH.CENTER if is_poem else WD_ALIGN_PARAGRAPH.JUSTIFY),
+                                 line_pt=19.4,
+                                 sb_pt=(2.0 if is_poem else 0),
+                                 sa_pt=(2.0 if is_poem else 1.0),
+                                 indent_first_pt=(0 if (is_cont or is_poem) else 15.5),
                                  page_break_before=first_para_of_page)
                     first_para_of_page = False
                     render_inline_html_runs(p, child, 11.0, pal, is_matn=False)

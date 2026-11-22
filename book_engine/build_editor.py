@@ -475,6 +475,8 @@ body.edition-sepia {{
 .sharh-zone.tight-fit {{ font-size: 10.95pt; line-height: 1.67; }}
 .sharh-zone.tight-fit .sharh-p {{ margin-bottom: 0.5pt; }}
 .sharh-p.cont {{ text-indent: 0; }}
+.matn-p.split-head, .sharh-p.split-head {{ text-align-last: justify; }}
+.sharh-p.poem-bayt {{ text-align: center; text-align-last: center; text-indent: 0; margin: 2pt 0; }}
 .sharh-p strong, .sharh-zone strong {{ font-weight: 700; color: var(--strong-ink); }}
 .ayah {{
   font-family: 'AmiriQuranFont', 'AmiriBook', serif;
@@ -1759,8 +1761,10 @@ const BASE_VERBATIM_DATA = {verbatim_json};
           if (!p) continue;
           if (/^\\s+$/.test(p)) {{
             if (atoms.length) atoms[atoms.length - 1].trail = ' ';
+          }} else if (atoms.length && !atoms[atoms.length - 1].trail && /^[.،؛:؟!»)\]]+$/.test(p)) {{
+            atoms[atoms.length - 1].postPunct = (atoms[atoms.length - 1].postPunct || '') + p;
           }} else {{
-            atoms.push({{ text: p, wrap: wrap, trail: '' }});
+            atoms.push({{ text: p, wrap: wrap, trail: '', postPunct: '' }});
           }}
         }}
       }}
@@ -1778,15 +1782,15 @@ const BASE_VERBATIM_DATA = {verbatim_json};
                 atoms[atoms.length - 1].suffixRef = refTxt;
                 atoms[atoms.length - 1].trail = '';
               }} else {{
-                atoms.push({{ text: refTxt, wrap: [...wrap, {{ tag, cls }}], trail: '' }});
+                atoms.push({{ text: refTxt, wrap: [...wrap, {{ tag, cls }}], trail: '', postPunct: '' }});
               }}
             }}
             return;
           }}
           if (clsList.includes('ayah')) {{
             const wordsCount = node.textContent.trim().split(/\\s+/).filter(Boolean).length;
-            if (wordsCount <= 42 && wrap.length === 0) {{
-              atoms.push({{ text: node.textContent.trim(), wrap: [{{ tag, cls }}], trail: '' }});
+            if (wordsCount <= 42) {{
+              atoms.push({{ text: node.textContent.trim(), wrap: [...wrap, {{ tag, cls }}], trail: '', postPunct: '' }});
               return;
             }}
           }}
@@ -1820,6 +1824,13 @@ const BASE_VERBATIM_DATA = {verbatim_json};
         if (a.suffixRef) {{
           closeAll(0);
           out += '\\u00A0<span class="ayah-ref">' + esc(a.suffixRef) + '</span>';
+        }}
+        if (a.postPunct) {{
+          if (openStack.some(w => w.cls && w.cls.includes('ayah'))) {{
+            const closeIdx = openStack.findIndex(w => w.cls && w.cls.includes('ayah'));
+            closeAll(closeIdx);
+          }}
+          out += esc(a.postPunct);
         }}
         if (i < atoms.length - 1) out += a.trail;
       }}
@@ -2014,6 +2025,36 @@ const BASE_VERBATIM_DATA = {verbatim_json};
       return p;
     }}
 
+    function finalizeSplitPara(pEl, atoms, best, allowJustify) {{
+      let splitIdx = best;
+      if (atoms.length - splitIdx > 0 && atoms.length - splitIdx <= 5 && splitIdx >= 2) {{
+        pEl.innerHTML = joinAtoms(atoms.slice(0, splitIdx));
+        const hAt = pEl.getBoundingClientRect().height;
+        let b2 = splitIdx - 1;
+        while (b2 >= 1) {{
+          pEl.innerHTML = joinAtoms(atoms.slice(0, b2));
+          if (pEl.getBoundingClientRect().height < hAt - 2) {{
+            splitIdx = b2;
+            break;
+          }}
+          b2--;
+        }}
+      }}
+      const headAtoms = atoms.slice(0, splitIdx);
+      const tailAtoms = atoms.slice(splitIdx);
+      pEl.innerHTML = joinAtoms(headAtoms);
+      if (allowJustify && tailAtoms.length > 0) {{
+        const range = document.createRange();
+        range.selectNodeContents(pEl);
+        const rects = range.getClientRects();
+        const lr = rects.length ? rects[rects.length - 1] : null;
+        if (lr && pEl.clientWidth > 0 && lr.width >= pEl.clientWidth * 0.62) {{
+          pEl.classList.add('split-head');
+        }}
+      }}
+      return {{ headAtoms, tailAtoms }};
+    }}
+
     function fitsPage(p) {{
       if (p.sharhZone.clientHeight < 24) return false;
       if (p.sharhZone.scrollHeight > p.sharhZone.clientHeight + 1) return false;
@@ -2061,6 +2102,16 @@ const BASE_VERBATIM_DATA = {verbatim_json};
       }}
       const glosses = Array.isArray(u.glosses) ? u.glosses : [];
       const lines = matnLines.map(l => String(l));
+      let hasLeadingDots = false;
+      let hasTrailingDots = false;
+      if (lines.length > 0 && /^\.{5,}\s*/.test(lines[0])) {{
+        hasLeadingDots = true;
+        lines[0] = lines[0].replace(/^\.{5,}\s*/, '').trim();
+      }}
+      if (lines.length > 0 && /\s*\.{5,}$/.test(lines[lines.length - 1])) {{
+        hasTrailingDots = true;
+        lines[lines.length - 1] = lines[lines.length - 1].replace(/\s*\.{5,}$/, '').trim();
+      }}
       const placements = [];
       for (const g of glosses) {{
         if (pageObj.pageGlossaryIds.has(g.id)) continue;
@@ -2118,13 +2169,16 @@ const BASE_VERBATIM_DATA = {verbatim_json};
           h += makeFigureEl(ui, im).outerHTML;
         }}
       }}
+      if (hasLeadingDots) h += '<div class="matn-cont-dots">............................................</div>';
       for (let i = 0; i < lines.length; i++) {{
         const line = lines[i];
+        if (!line.trim()) continue;
         const anchorAttr = (!anchorPlaced && i === 0) ? ' id="unit-' + esc(u.id) + '"' : '';
         const isBasmalah = /^بِسْمِ\\s+اللَّ?هِ\\s+الرَّحْم[َٰـ]*نِ\\s+الرَّحِيمِ$/.test(line.trim());
         h += '<p class="' + (isBasmalah ? 'matn-basmalah' : 'matn-p') + '"' + anchorAttr + ' contenteditable="true" data-uidx="' + ui + '" data-matn-li="' + i + '">' + wrapMatnAyahs(line) + '</p>';
         anchorPlaced = true;
       }}
+      if (hasTrailingDots) h += '<div class="matn-cont-dots">............................................</div>';
       if (u.fasl_end) h += THREE_STARS_HTML;
       return h;
     }}
@@ -2235,6 +2289,8 @@ const BASE_VERBATIM_DATA = {verbatim_json};
       const paras = u.sharh_paras_html || [];
       for (let pi = 0; pi < paras.length; pi++) {{
         let atoms = tokenizeHtml(paras[pi]);
+        const plainP = paras[pi].replace(/<[^>]+>/g, '').trim();
+        const isPoemBayt = /^[^<>\\n]{8,65}\\s+\\.\\.\\.\\s+[^<>\\n]{8,65}$/.test(plainP);
         let isCont = false;
         let firstPartOnPage = true;
         const placedElsForPara = [];
@@ -2242,7 +2298,7 @@ const BASE_VERBATIM_DATA = {verbatim_json};
 
         while (atoms.length > 0) {{
           const pEl = document.createElement('p');
-          pEl.className = 'sharh-p' + (isCont ? ' cont' : '');
+          pEl.className = 'sharh-p' + (isPoemBayt ? ' poem-bayt' : '') + (isCont ? ' cont' : '');
           pEl.dataset.uidx = ui;
           pEl.dataset.pi = pi;
           pEl.innerHTML = joinAtoms(atoms);
@@ -2253,7 +2309,7 @@ const BASE_VERBATIM_DATA = {verbatim_json};
             placedElsForPara.push(pEl);
             atoms = [];
           }} else {{
-            if (isLastPara && atoms.length <= 28 && !curPageObj.sharhZone.classList.contains('tight-fit')) {{
+            if (isLastPara && atoms.length <= 34 && !curPageObj.sharhZone.classList.contains('tight-fit')) {{
               curPageObj.sharhZone.classList.add('tight-fit');
               if (fitsPage(curPageObj)) {{
                 recordAyahsOnPage(pEl.innerHTML, curPageObj.pNum);
@@ -2271,7 +2327,7 @@ const BASE_VERBATIM_DATA = {verbatim_json};
               else hi = mid - 1;
             }}
             const priorParaCount = curPageObj.sharhZone.querySelectorAll('p.sharh-p').length - 1;
-            if (best <= 0 || (priorParaCount > 0 && best < 3)) {{
+            if (best <= 0 || (priorParaCount > 0 && best < 3) || (isPoemBayt && best < atoms.length)) {{
               if (!curPageObj.isContPage || priorParaCount > 0) {{
                 curPageObj.sharhZone.removeChild(pEl);
                 curPageObj = openOverflowPage(u);
@@ -2280,9 +2336,8 @@ const BASE_VERBATIM_DATA = {verbatim_json};
                 best = Math.min(12, atoms.length);
               }}
             }}
-            const headAtoms = atoms.slice(0, best);
-            const tailAtoms = atoms.slice(best);
-            if (isLastPara && tailAtoms.length <= 26 && !curPageObj.sharhZone.classList.contains('tight-fit')) {{
+            const prelimTailLen = atoms.length - best;
+            if (isLastPara && prelimTailLen <= 34 && !curPageObj.sharhZone.classList.contains('tight-fit')) {{
               pEl.innerHTML = joinAtoms(atoms);
               curPageObj.sharhZone.classList.add('tight-fit');
               if (fitsPage(curPageObj)) {{
@@ -2293,10 +2348,10 @@ const BASE_VERBATIM_DATA = {verbatim_json};
               }}
               curPageObj.sharhZone.classList.remove('tight-fit');
             }}
-            pEl.innerHTML = joinAtoms(headAtoms);
+            const splitRes = finalizeSplitPara(pEl, atoms, best, !isPoemBayt);
             recordAyahsOnPage(pEl.innerHTML, curPageObj.pNum);
             placedElsForPara.push(pEl);
-            atoms = tailAtoms;
+            atoms = splitRes.tailAtoms;
             isCont = true;
             firstPartOnPage = false;
             if (atoms.length > 0) curPageObj = openOverflowPage(u);
