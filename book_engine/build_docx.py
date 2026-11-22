@@ -1,17 +1,17 @@
 #!/usr/bin/env python3
 """
 Builds pixel- & millimeter-aligned editable Word (.docx) editions directly from
-Chromium's paginated HTML DOM (`full_book.html` / `full_book_two_color.html`):
+Chromium's paginated HTML DOM (`full_book.html` / `full_book_two_color.html`)
+for «تَيْسِيرُ الانْتِفَاعِ بِشَرْحِ مُخْتَصَرِ أَبِي شُجَاعٍ»:
   - Exact Trim Size: 162mm x 234mm
   - Cover Plate (pg-1, full-bleed cover_front.png anchored edge-to-edge 162x234mm)
   - Framed Front Plates (pg-2..pg-4: double thick-thin border frame, 204mm frame height)
-  - Running Alternating Headers (pg-5..pg-365: evenAndOddHeaders with live PAGE field)
-  - Body Pages (pg-5..pg-359): Upper Matn with superscript gloss numbers (١),
+  - Running Alternating Headers (pg-5..end: evenAndOddHeaders with live PAGE field)
+  - Body Pages (pg-5..end): Upper Matn with superscript gloss numbers (١),
     middle horizontal split rule, Lower Sharh (bold Matn citations + Amiri Quran ayahs),
-    and per-page bottom footnote area ((*) lesson + (١) Al-Anwar glosses)
-  - Back Matter Indexes (pg-360..pg-364 Ayah Index table + pg-365 Two-Column General TOC)
+    and per-page bottom footnote area ((*) lesson + (١) classical gharib glosses)
+  - Back Matter Indexes (Ayah Index table + Two-Column General TOC)
   - Strict ECMA-376 OOXML child ordering and zero duplicate property nodes.
-  - Supports `--edition classic` and `--edition two-color` (#9b111e crimson + #111111 black on white).
 """
 import argparse
 import os
@@ -20,6 +20,7 @@ from docx import Document
 from docx.shared import Mm, Pt, RGBColor
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 from docx.enum.section import WD_SECTION
+from docx.enum.style import WD_STYLE_TYPE
 from docx.enum.table import WD_TABLE_ALIGNMENT, WD_ALIGN_VERTICAL
 from docx.oxml import OxmlElement, parse_xml
 from docx.oxml.ns import qn, nsdecls
@@ -27,6 +28,22 @@ from docx.oxml.ns import qn, nsdecls
 _ENG = os.path.dirname(os.path.abspath(__file__))
 _REPO = os.path.dirname(_ENG)
 COVER_IMG = os.path.join(_ENG, "cover_front.png")
+BASMALAH_IMGS = {
+    "classic": os.path.join(_ENG, "basmalah.png"),
+    "two-color": os.path.join(_ENG, "basmalah_crimson.png"),
+}
+BANNER_IMGS = {
+    "classic": os.path.join(_ENG, "banner_classic.png"),
+    "two-color": os.path.join(_ENG, "banner_crimson.png"),
+}
+TAILPIECE_IMGS = {
+    "classic": os.path.join(_ENG, "tailpiece_classic.png"),
+    "two-color": os.path.join(_ENG, "tailpiece_crimson.png"),
+}
+WING_IMGS = {
+    "classic": os.path.join(_ENG, "wing_classic.png"),
+    "two-color": os.path.join(_ENG, "wing_crimson.png"),
+}
 ASSETS_HTML = {
     "classic": os.path.join(_ENG, "full_book.html"),
     "two-color": os.path.join(_ENG, "full_book_two_color.html"),
@@ -115,7 +132,7 @@ def get_palette(edition: str) -> dict:
             "ayah_ink": "111111",
             "rule_ink": "9B111E",
             "fn_num_ink": "9B111E",
-            "subtle_ink": "333333",
+            "subtle_ink": "444444",
         }
     return {
         "ink": "111111",
@@ -131,9 +148,12 @@ def get_palette(edition: str) -> dict:
 
 def configure_ppr_rtl(pPr, align_val=None, line_pt=None,
                       sb_tw=None, sa_tw=None, indent_first_tw=None,
-                      page_break_before=False, mark_size_pt=None):
+                      page_break_before=False, mark_size_pt=None,
+                      line_rule: str = "exact", keep_with_next: bool = False):
     get_or_add(pPr, "w:bidi")
     get_or_add(pPr, "w:adjustRightInd")
+    if keep_with_next:
+        get_or_add(pPr, "w:keepNext")
     if page_break_before:
         get_or_add(pPr, "w:pageBreakBefore")
     if line_pt is not None or sb_tw is not None or sa_tw is not None:
@@ -144,7 +164,7 @@ def configure_ppr_rtl(pPr, align_val=None, line_pt=None,
             sp.set(qn("w:after"), str(int(round(sa_tw))))
         if line_pt is not None:
             sp.set(qn("w:line"), str(int(round(line_pt * 20))))
-            sp.set(qn("w:lineRule"), "exact")
+            sp.set(qn("w:lineRule"), line_rule)
     if indent_first_tw is not None:
         ind = get_or_add(pPr, "w:ind")
         ind.set(qn("w:firstLine"), str(int(round(indent_first_tw))))
@@ -161,7 +181,8 @@ def configure_ppr_rtl(pPr, align_val=None, line_pt=None,
 
 def set_para_rtl(p, align=WD_ALIGN_PARAGRAPH.RIGHT, line_pt=None,
                  sb_pt=0.0, sa_pt=0.0, indent_first_pt=0.0, page_break_before=False,
-                 mark_size_pt: float = None):
+                 mark_size_pt: float = None, line_rule: str = "exact",
+                 keep_with_next: bool = False):
     jc_map = {
         WD_ALIGN_PARAGRAPH.RIGHT: "right",
         WD_ALIGN_PARAGRAPH.LEFT: "left",
@@ -178,12 +199,13 @@ def set_para_rtl(p, align=WD_ALIGN_PARAGRAPH.RIGHT, line_pt=None,
         indent_first_tw=(indent_first_pt * 20 if indent_first_pt else 0),
         page_break_before=page_break_before,
         mark_size_pt=mark_size_pt,
+        line_rule=line_rule,
+        keep_with_next=keep_with_next,
     )
     return p
 
 
 def shrink_section_break_para(prev_sec):
-    """Ensures section-break-holding paragraph is 1pt tall so full preceding pages never overflow."""
     pPr = prev_sec._sectPr.getparent()
     if pPr is not None and pPr.tag == qn("w:pPr"):
         configure_ppr_rtl(pPr, align_val="right", line_pt=1.0, sb_tw=0, sa_tw=0,
@@ -228,7 +250,6 @@ def set_para_box_border(p, color_hex: str, sz_eighths: int = 8, space_pt: int = 
 def apply_run_style(run, size_pt: float, color_hex: str, bold: bool = False,
                     italic: bool = False, font_name: str = "Amiri",
                     superscript: bool = False):
-    """Populates <w:rPr> in strict ECMA-376 child sequence."""
     sz_half = str(int(round(size_pt * 2)))
     rPr = run._r.get_or_add_rPr()
 
@@ -409,7 +430,6 @@ def set_table_borders_none(table):
 
 
 def convert_inline_cover_to_full_bleed_anchor(drawing_el):
-    """Converts <wp:inline> cover picture into full-bleed <wp:anchor> anchored at page (0, 0)."""
     inline = drawing_el.find(qn("wp:inline"))
     if inline is None:
         return
@@ -443,36 +463,101 @@ def convert_inline_cover_to_full_bleed_anchor(drawing_el):
     drawing_el.append(anchor)
 
 
-def configure_running_header(hdr, center_title: str, side: str, start_pg_num: int, pal: dict):
+def add_styleref_field(p, style_name: str, fallback_str: str, size_pt: float, color_hex: str, bold: bool = True):
+    def make_fld(fld_type: str):
+        r = p.add_run()
+        apply_run_style(r, size_pt, color_hex, bold=bold)
+        fc = OxmlElement("w:fldChar")
+        fc.set(qn("w:fldCharType"), fld_type)
+        r._r.append(fc)
+
+    make_fld("begin")
+    r_instr = p.add_run()
+    apply_run_style(r_instr, size_pt, color_hex, bold=bold)
+    it = OxmlElement("w:instrText")
+    it.set(qn("xml:space"), "preserve")
+    it.text = f' STYLEREF "{style_name}" \\* MERGEFORMAT '
+    r_instr._r.append(it)
+    make_fld("separate")
+    add_run(p, fallback_str, size_pt, color_hex, bold=bold)
+    make_fld("end")
+
+
+def configure_running_header(hdr, title_text: str, side: str, start_pg_num: int, pal: dict,
+                             wing_img: str, use_styleref: bool = False):
     hdr.is_linked_to_previous = False
     for p in list(hdr.paragraphs):
         p._element.getparent().remove(p._element)
-    tbl = hdr.add_table(rows=1, cols=3, width=Mm(125))
+    tbl = hdr.add_table(rows=1, cols=2, width=Mm(125))
     tbl.alignment = WD_TABLE_ALIGNMENT.CENTER
     tbl.autofit = False
     set_table_rtl(tbl)
     set_table_borders_none(tbl)
 
-    widths = [Mm(18), Mm(89), Mm(18)]
+    if side == "left":
+        widths = [Mm(96), Mm(29)]
+        title_idx, badge_idx = 0, 1
+        title_align = WD_ALIGN_PARAGRAPH.RIGHT
+        badge_align = WD_TABLE_ALIGNMENT.LEFT
+    else:
+        widths = [Mm(29), Mm(96)]
+        badge_idx, title_idx = 0, 1
+        title_align = WD_ALIGN_PARAGRAPH.LEFT
+        badge_align = WD_TABLE_ALIGNMENT.RIGHT
+
     row = tbl.rows[0]
     for idx, cell in enumerate(row.cells):
         set_cell_width(cell, widths[idx])
-        set_cell_margins(cell, top_dxa=0, bottom_dxa=60, left_dxa=0, right_dxa=0)
+        cell.vertical_alignment = WD_ALIGN_VERTICAL.CENTER
+        set_cell_margins(cell, top_dxa=45, bottom_dxa=65, left_dxa=0, right_dxa=0)
         set_cell_borders(cell, bottom=("single", 5, pal["rule_ink"]))
 
-    p_r = row.cells[0].paragraphs[0]
-    set_para_rtl(p_r, align=WD_ALIGN_PARAGRAPH.RIGHT, line_pt=13.5, sb_pt=0, sa_pt=0)
-    if side == "right":
-        add_page_field(p_r, to_e(start_pg_num), 10.5, pal["accent"], bold=True)
+    p_title = row.cells[title_idx].paragraphs[0]
+    set_para_rtl(p_title, align=title_align, line_pt=19.0, sb_pt=0, sa_pt=0, line_rule="atLeast")
+    if use_styleref:
+        add_styleref_field(p_title, "ShujaRunningHead", title_text, 10.0, pal["accent"], bold=True)
+    else:
+        add_run(p_title, title_text, 10.0, pal["accent"], bold=True)
 
-    p_c = row.cells[1].paragraphs[0]
-    set_para_rtl(p_c, align=WD_ALIGN_PARAGRAPH.CENTER, line_pt=13.5, sb_pt=0, sa_pt=0)
-    add_run(p_c, center_title, 10.5, pal["ink"], bold=False)
+    b_cell = row.cells[badge_idx]
+    b_init_p = b_cell.paragraphs[0]
+    nested = b_cell.add_table(rows=1, cols=3)
+    nested.alignment = badge_align
+    nested.autofit = False
+    set_table_rtl(nested)
+    set_table_borders_none(nested)
+    n_tblPr = nested._tbl.tblPr
+    n_tblW = get_or_add(n_tblPr, "w:tblW")
+    n_tblW.set(qn("w:w"), str(int(Mm(28).twips)))
+    n_tblW.set(qn("w:type"), "dxa")
+    sort_xml_children(n_tblPr, TBLPR_SEQ)
 
-    p_l = row.cells[2].paragraphs[0]
-    set_para_rtl(p_l, align=WD_ALIGN_PARAGRAPH.LEFT, line_pt=13.5, sb_pt=0, sa_pt=0)
-    if side == "left":
-        add_page_field(p_l, to_e(start_pg_num), 10.5, pal["accent"], bold=True)
+    b_init_p._element.getparent().remove(b_init_p._element)
+    p_trail = b_cell.add_paragraph()
+    set_para_rtl(p_trail, align=WD_ALIGN_PARAGRAPH.CENTER, line_pt=1.0, sb_pt=0, sa_pt=0, mark_size_pt=1.0)
+
+    n_widths = [Mm(7.5), Mm(13.0), Mm(7.5)]
+    nrow = nested.rows[0]
+    for ci, ncell in enumerate(nrow.cells):
+        set_cell_width(ncell, n_widths[ci])
+        ncell.vertical_alignment = WD_ALIGN_VERTICAL.CENTER
+        if ci == 1:
+            set_cell_margins(ncell, top_dxa=12, bottom_dxa=15, left_dxa=25, right_dxa=25)
+            set_cell_borders(
+                ncell,
+                top=("single", 5, pal["accent"]),
+                left=("single", 5, pal["accent"]),
+                bottom=("single", 5, pal["accent"]),
+                right=("single", 5, pal["accent"]),
+            )
+            np = ncell.paragraphs[0]
+            set_para_rtl(np, align=WD_ALIGN_PARAGRAPH.CENTER, line_pt=12.0, sb_pt=0, sa_pt=0)
+            add_page_field(np, to_e(start_pg_num), 9.5, pal["accent"], bold=True)
+        else:
+            set_cell_margins(ncell, top_dxa=0, bottom_dxa=0, left_dxa=0, right_dxa=0)
+            np = ncell.paragraphs[0]
+            set_para_rtl(np, align=WD_ALIGN_PARAGRAPH.CENTER, line_pt=8.0, sb_pt=0, sa_pt=0)
+            np.add_run().add_picture(wing_img, width=Mm(6.3), height=Mm(2.7))
 
 
 def set_section_page_start(section, start_num: int):
@@ -504,11 +589,13 @@ def configure_page_size(section, top_mm, bottom_mm, left_mm, right_mm,
 
 
 def render_inline_html_runs(p, el, base_size_pt: float, pal: dict, is_matn: bool = False):
-    def walk(node, bold=False, font_name="Amiri", color_hex=None, superscript=False):
+    def walk(node, bold=False, font_name="Amiri", color_hex=None, superscript=False, font_size=None):
         if color_hex is None:
             color_hex = pal["matn_ink"] if is_matn else pal["ink"]
+        if font_size is None:
+            font_size = base_size_pt
         if node.text:
-            add_run(p, node.text, base_size_pt, color_hex, bold=bold,
+            add_run(p, node.text, font_size, color_hex, bold=bold,
                     font_name=font_name, superscript=superscript)
         for ch in node:
             tag = ch.tag.lower() if isinstance(ch.tag, str) else ""
@@ -517,17 +604,23 @@ def render_inline_html_runs(p, el, base_size_pt: float, pal: dict, is_matn: bool
             ch_font = font_name
             ch_col = color_hex
             ch_sup = superscript or (tag == "sup" or "fn-ref" in cls)
+            ch_sz = font_size
             if "ayah" in cls:
                 ch_font = "Amiri Quran"
                 ch_col = pal["ayah_ink"]
+            elif "ayah-ref" in cls:
+                ch_font = "Amiri"
+                ch_col = pal["subtle_ink"]
+                ch_bold = False
+                ch_sz = max(7.6, base_size_pt - 2.6)
             elif "fn-ref" in cls or tag == "sup":
                 ch_col = pal["fn_num_ink"]
                 ch_bold = True
             elif tag in ("strong", "b"):
                 ch_col = pal["strong_ink"] if not is_matn else pal["matn_ink"]
-            walk(ch, bold=ch_bold, font_name=ch_font, color_hex=ch_col, superscript=ch_sup)
+            walk(ch, bold=ch_bold, font_name=ch_font, color_hex=ch_col, superscript=ch_sup, font_size=ch_sz)
             if ch.tail:
-                add_run(p, ch.tail, base_size_pt, color_hex, bold=bold,
+                add_run(p, ch.tail, font_size, color_hex, bold=bold,
                         font_name=font_name, superscript=superscript)
 
     walk(el)
@@ -578,7 +671,6 @@ def build_docx(edition: str, mode: str = "verbatim"):
 
     doc = Document()
 
-    # Global Normal style RTL Amiri
     norm = doc.styles["Normal"]
     norm.font.name = "Amiri"
     norm.font.size = Pt(11.0)
@@ -603,6 +695,16 @@ def build_docx(edition: str, mode: str = "verbatim"):
         sett.append(dt)
 
     bm = BookmarkGen()
+    if "ShujaRunningHead" not in doc.styles:
+        rh_style = doc.styles.add_style("ShujaRunningHead", WD_STYLE_TYPE.PARAGRAPH)
+        rh_style.base_style = doc.styles["Normal"]
+    else:
+        rh_style = doc.styles["ShujaRunningHead"]
+
+    basmalah_img = BASMALAH_IMGS[edition]
+    banner_img = BANNER_IMGS[edition]
+    tailpiece_img = TAILPIECE_IMGS[edition]
+    wing_img = WING_IMGS[edition]
 
     # ==================== SECTION 0: pg-1 FRONT COVER ====================
     sec0 = doc.sections[0]
@@ -640,7 +742,7 @@ def build_docx(edition: str, mode: str = "verbatim"):
     set_para_rtl(p3, align=WD_ALIGN_PARAGRAPH.CENTER, line_pt=28, sb_pt=4, sa_pt=20)
     add_run(
         p3,
-        "تَفْرِيغٌ مُحَرَّرٌ لِمُحَاضَرَاتِ الشَّيْخِ فِي شَرْحِ مَتْنِ أَبِي شُجَاعٍ" if is_edited
+        "تَفْرِيغٌ مُحَرَّرٌ مُهَذَّبٌ لِمُحَاضَرَاتِ الشَّيْخِ فِي شَرْحِ مَتْنِ أَبِي شُجَاعٍ" if is_edited
         else "التَّفْرِيغُ الْحَرْفِيُّ الْكَامِلُ لِدُرُوسِ شَرْحِ مَتْنِ أَبِي شُجَاعٍ",
         16.5, pal["ink"], bold=True
     )
@@ -660,12 +762,11 @@ def build_docx(edition: str, mode: str = "verbatim"):
     set_para_rtl(p6, align=WD_ALIGN_PARAGRAPH.CENTER, line_pt=18, sb_pt=14, sa_pt=0)
     add_run(
         p6,
-        "كِتَابُ الطَّهَارَةِ وَكِتَابُ الصَّلاَةِ     •     ٢٥ مُحَاضَرَةً مُحَرَّرَةً" if is_edited
+        "كِتَابُ الطَّهَارَةِ وَكِتَابُ الصَّلاَةِ     •     ٢٥ مُحَاضَرَةً مُهَذَّبَةً" if is_edited
         else "كِتَابُ الطَّهَارَةِ وَكِتَابُ الصَّلاَةِ     •     ٢٥ لِقَاءً صَوْتِيًّا كَامِلاً",
         10.5, pal["accent"], bold=True
     )
 
-    # Page Break to pg-3
     p_brk3 = doc.add_paragraph()
     set_para_rtl(p_brk3, line_pt=1.0, sb_pt=0, sa_pt=0, page_break_before=True, mark_size_pt=2.0)
 
@@ -676,7 +777,7 @@ def build_docx(edition: str, mode: str = "verbatim"):
     bm.add_bookmark(p, "pg-3")
     add_run(p, "تَيْسِيرُ الانْتِفَاعِ بِشَرْحِ مُخْتَصَرِ أَبِي شُجَاعٍ\n", 14.5, pal["accent"], bold=True)
     if is_edited:
-        add_run(p, "تَفْرِيغٌ مُحَرَّرٌ لِمُحَاضَرَاتِ الشَّيْخِ فِي شَرْحِ مَتْنِ أَبِي شُجَاعٍ\n", 11.0, pal["ink"])
+        add_run(p, "تَفْرِيغٌ مُحَرَّرٌ مُهَذَّبٌ لِمُحَاضَرَاتِ الشَّيْخِ فِي شَرْحِ مَتْنِ أَبِي شُجَاعٍ\n", 11.0, pal["ink"])
         add_run(p, "( الْمُحَاضَرَاتُ : ١ – ٢٥ )", 10.5, pal["ink"])
     else:
         add_run(p, "تَفْرِيغٌ حَرْفِيٌّ كَامِلٌ مُرَاجَعٌ لِدُرُوسِ السِّلْسِلَةِ الْفِقْهِيَّةِ الشَّافِعِيَّةِ\n", 11.0, pal["ink"])
@@ -687,7 +788,7 @@ def build_docx(edition: str, mode: str = "verbatim"):
     set_para_box_border(p_box, pal["accent"], sz_eighths=8, space_pt=7, ind_lr_mm=5.0)
     add_run(
         p_box,
-        "أُعِدَّ هَذَا الْكِتَابُ بِتَفْرِيغِ مُحَاضَرَاتِ الشَّيْخِ الشَّارِحِ وَتَحْرِيرِهَا بِالْعَرَبِيَّةِ الْفُصْحَى الْمُيَسَّرَةِ، وَتَنْقِيَتِهَا مِنَ الْعَامِّيَّةِ وَفَوَاتِحِ الدُّرُوسِ وَخَوَاتِمِهَا وَأَسْئِلَةِ الْحُضُورِ، مَعَ الأَمَانَةِ التَّامَّةِ فِي حِفْظِ الْمَعَانِي وَالأَحْكَامِ دُونَ تَغْيِيرٍ أَوْ زِيَادَةٍ."
+        "أُعِدَّ هَذَا الْكِتَابُ بِتَفْرِيغِ مُحَاضَرَاتِ الشَّيْخِ الشَّارِحِ بِإِثْبَاتِ كَلاَمِهِ كَامِلاً بِلَفْظِهِ دُونَ تَبْدِيلٍ أَوِ اخْتِصَارٍ، مَعَ الاقْتِصَارِ عَلَى مُقَدِّمَةِ اللِّقَاءِ الأَوَّلِ وَخَاتِمَةِ اللِّقَاءِ الأَخِيرِ وَتَهْذِيبِ التَّكْرَارِ اللَّفْظِيِّ الْمُتَتَابِعِ فَحَسْبُ."
         if is_edited else
         "أُعِدَّ هَذَا الْكِتَابُ بِإِثْبَاتِ كَلاَمِ الشَّيْخِ الشَّارِحِ كَامِلاً كَمَا أُلْقِيَ دُونَ حَذْفٍ أَوْ اخْتِصَارٍ ،\n"
         "مَعَ إِثْبَاتِ مَتْنِ أَبِي شُجَاعٍ مَضْبُوطاً بِالشَّكْلِ أَعْلَى الصَّفْحَةِ مَفْصُولاً بِخَطٍّ أُفُقِيٍّ عَنِ الشَّرْحِ أَسْفَلَهُ",
@@ -703,7 +804,7 @@ def build_docx(edition: str, mode: str = "verbatim"):
         "أُلْحِقَتْ بِالحَوَاشِي أَسْفَلَ الصَّفَحَاتِ مَعَانِي الأَلْفَاظِ الْغَرِيبَةِ وَبَعْضِ الْمُصْطَلَحَاتِ الَّتِي لَمْ يَتَعَرَّضْ الشَّيْخُ الشَّارِحُ لِبَيَانِهَا فِي مَوْضِعِهَا، مُنْتَقَاةً مِنْ رِسَالَةِ :\n",
         10.0, pal["ink"]
     )
-    add_run(p_src, "«الأَنوَارُ عَلَى غَايَةِ الاِخْتِصَارِ» لِجَامِعِهِ عَبْدِ الرَّحْمَنِ مُحَمَّدٍ نُورِ الدِّينِ\n", 10.5, pal["accent"], bold=True)
+    add_run(p_src, "«الأَنوَارُ عَلَى غَايَةِ الاِخْتِصَارِ» لِجَامِعِهِ عَبْدِ الرَّحْمَنِ مُحَمَّدٍ نُورِ الدِّينِ\n", 10.2, pal["accent"], bold=True)
     add_run(p_src, "بِتَرْقِيمٍ مُسْتَقِلٍّ لِكُلِّ صَفْحَةٍ يَبْدَأُ بِـ ", 10.0, pal["ink"])
     add_run(p_src, "(١)", 10.0, pal["accent"], bold=True)
     add_run(p_src, " دُونَ تَكْرَارٍ لِلْمَعْنَى فِي الصَّفْحَةِ الْوَاحِدَةِ.", 10.0, pal["ink"])
@@ -726,21 +827,19 @@ def build_docx(edition: str, mode: str = "verbatim"):
     set_para_top_border(p_cf, pal["rule_ink"], sz_eighths=5, ind_left_twips=480, ind_right_twips=480)
     add_run(p_cf, "تَيْسِيرُ الانْتِفَاعِ بِشَرْحِ مُخْتَصَرِ أَبِي شُجَاعٍ — لِفَضِيلَةِ الشَّيْخِ أَحْمَدَ الْجَوْهَرِيِّ", 10.0, pal["accent"], bold=True)
 
-    # Page Break to pg-4
     p_brk4 = doc.add_paragraph()
     set_para_rtl(p_brk4, line_pt=1.0, sb_pt=0, sa_pt=0, page_break_before=True, mark_size_pt=2.0)
 
-    # pg-4 Basmalah Plate
+    # pg-4 Calligraphic Basmalah PNG Plate
     c4 = build_framed_table(doc, pal, height_mm=204.0)
     p = c4.paragraphs[0]
-    set_para_rtl(p, align=WD_ALIGN_PARAGRAPH.CENTER, line_pt=48, sb_pt=0, sa_pt=8)
+    set_para_rtl(p, align=WD_ALIGN_PARAGRAPH.CENTER, line_pt=12.0, sb_pt=0, sa_pt=14, line_rule="atLeast")
     bm.add_bookmark(p, "pg-4")
-    add_run(p, "بِسْمِ اللَّهِ الرَّحْمَـٰنِ الرَّحِيمِ", 25.0, pal["accent"], font_name="Amiri Quran")
+    p.add_run().add_picture(basmalah_img, width=Mm(72))
     p4b = c4.add_paragraph()
-    set_para_rtl(p4b, align=WD_ALIGN_PARAGRAPH.CENTER, line_pt=16, sb_pt=4, sa_pt=0)
-    add_run(p4b, "✽      ✽      ✽", 10.5, pal["accent"])
+    set_para_rtl(p4b, align=WD_ALIGN_PARAGRAPH.CENTER, line_pt=10.0, sb_pt=6, sa_pt=0, line_rule="atLeast")
+    p4b.add_run().add_picture(tailpiece_img, width=Mm(54))
 
-    # Identify index section boundaries
     ayah_start_pg = None
     toc_start_pg = None
     for pg in pages:
@@ -756,10 +855,10 @@ def build_docx(edition: str, mode: str = "verbatim"):
     # ==================== SECTION 2: pg-5 .. body_end_pg BODY PAGES ====================
     sec2 = doc.add_section(WD_SECTION.NEW_PAGE)
     shrink_section_break_para(sec1)
-    configure_page_size(sec2, top_mm=21.2, bottom_mm=11.5, left_mm=18.5, right_mm=18.5, hdr_mm=13.0, ftr_mm=8.0)
+    configure_page_size(sec2, top_mm=21.2, bottom_mm=11.5, left_mm=18.5, right_mm=18.5, hdr_mm=10.5, ftr_mm=8.0)
     set_section_page_start(sec2, 5)
-    configure_running_header(sec2.header, "لِفَضِيلَةِ الشَّيْخِ أَحْمَدَ الْجَوْهَرِيِّ", "left", 5, pal)
-    configure_running_header(sec2.even_page_header, "« تَيْسِيرُ الانْتِفَاعِ بِشَرْحِ مُخْتَصَرِ أَبِي شُجَاعٍ »", "right", 6, pal)
+    configure_running_header(sec2.header, "مُقَدِّمَةُ الْكِتَابِ", "left", 5, pal, wing_img, use_styleref=True)
+    configure_running_header(sec2.even_page_header, "تَيْسِيرُ الانْتِفَاعِ بِشَرْحِ مُخْتَصَرِ أَبِي شُجَاعٍ", "right", 6, pal, wing_img, use_styleref=False)
 
     for pg in pages[4:]:
         pnum = int(pg.get("id").replace("pg-", ""))
@@ -791,19 +890,39 @@ def build_docx(edition: str, mode: str = "verbatim"):
 
         if matn_zones:
             mz = matn_zones[0]
+            has_bracket_in_mz = bool(mz.xpath('./*[contains(@class,"matn-bracket-title")]'))
             for child in mz:
                 cls = (child.get("class") or "").split()
                 uid = child.get("id")
-                if "matn-book-title" in cls:
+                if "chapter-banner" in cls:
                     p = doc.add_paragraph()
-                    set_para_rtl(p, align=WD_ALIGN_PARAGRAPH.CENTER, line_pt=26.5,
-                                 sb_pt=0, sa_pt=3.5, page_break_before=first_para_of_page)
+                    set_para_rtl(p, align=WD_ALIGN_PARAGRAPH.CENTER, line_pt=14.0,
+                                 sb_pt=0, sa_pt=0, page_break_before=first_para_of_page,
+                                 line_rule="atLeast", keep_with_next=True)
+                    first_para_of_page = False
+                    p.add_run().add_picture(banner_img, width=Mm(116))
+                elif "tailpiece-row" in cls:
+                    p = doc.add_paragraph()
+                    set_para_rtl(p, align=WD_ALIGN_PARAGRAPH.CENTER, line_pt=10.0,
+                                 sb_pt=3.0, sa_pt=2.5, page_break_before=first_para_of_page,
+                                 line_rule="atLeast")
+                    first_para_of_page = False
+                    p.add_run().add_picture(tailpiece_img, width=Mm(54))
+                elif "matn-book-title" in cls:
+                    p = doc.add_paragraph()
+                    if not has_bracket_in_mz:
+                        p.style = rh_style
+                    set_para_rtl(p, align=WD_ALIGN_PARAGRAPH.CENTER, line_pt=31.0,
+                                 sb_pt=0, sa_pt=3.5, page_break_before=first_para_of_page,
+                                 line_rule="atLeast")
                     first_para_of_page = False
                     add_run(p, child.text_content().strip(), 17.0, pal["accent"], bold=True)
                 elif "matn-bracket-title" in cls:
                     p = doc.add_paragraph()
-                    set_para_rtl(p, align=WD_ALIGN_PARAGRAPH.CENTER, line_pt=21.5,
-                                 sb_pt=0, sa_pt=3.5, page_break_before=first_para_of_page)
+                    p.style = rh_style
+                    set_para_rtl(p, align=WD_ALIGN_PARAGRAPH.CENTER, line_pt=25.0,
+                                 sb_pt=3.0, sa_pt=3.5, page_break_before=first_para_of_page,
+                                 line_rule="atLeast")
                     first_para_of_page = False
                     add_run(p, child.text_content().strip(), 14.0, pal["accent"], bold=True)
                 elif "matn-basmalah" in cls:
@@ -827,10 +946,11 @@ def build_docx(edition: str, mode: str = "verbatim"):
                     render_inline_html_runs(p, child, 13.0, pal, is_matn=True)
                 elif "stars-row" in cls:
                     p = doc.add_paragraph()
-                    set_para_rtl(p, align=WD_ALIGN_PARAGRAPH.CENTER, line_pt=12.0,
-                                 sb_pt=1.0, sa_pt=2.0, page_break_before=first_para_of_page)
+                    set_para_rtl(p, align=WD_ALIGN_PARAGRAPH.CENTER, line_pt=10.0,
+                                 sb_pt=2.5, sa_pt=2.0, page_break_before=first_para_of_page,
+                                 line_rule="atLeast")
                     first_para_of_page = False
-                    add_run(p, "✽      ✽      ✽", 9.5, pal["accent"])
+                    p.add_run().add_picture(tailpiece_img, width=Mm(54))
                 else:
                     continue
 
@@ -845,10 +965,26 @@ def build_docx(edition: str, mode: str = "verbatim"):
             for child in sz:
                 cls = (child.get("class") or "").split()
                 uid = child.get("id")
-                if "preface-h" in cls:
+                if "chapter-banner" in cls:
                     p = doc.add_paragraph()
-                    set_para_rtl(p, align=WD_ALIGN_PARAGRAPH.CENTER, line_pt=26.5,
-                                 sb_pt=2.0, sa_pt=6.0, page_break_before=first_para_of_page)
+                    set_para_rtl(p, align=WD_ALIGN_PARAGRAPH.CENTER, line_pt=14.0,
+                                 sb_pt=0, sa_pt=0, page_break_before=first_para_of_page,
+                                 line_rule="atLeast", keep_with_next=True)
+                    first_para_of_page = False
+                    p.add_run().add_picture(banner_img, width=Mm(116))
+                elif "tailpiece-row" in cls:
+                    p = doc.add_paragraph()
+                    set_para_rtl(p, align=WD_ALIGN_PARAGRAPH.CENTER, line_pt=10.0,
+                                 sb_pt=3.0, sa_pt=2.5, page_break_before=first_para_of_page,
+                                 line_rule="atLeast")
+                    first_para_of_page = False
+                    p.add_run().add_picture(tailpiece_img, width=Mm(54))
+                elif "preface-h" in cls:
+                    p = doc.add_paragraph()
+                    p.style = rh_style
+                    set_para_rtl(p, align=WD_ALIGN_PARAGRAPH.CENTER, line_pt=30.0,
+                                 sb_pt=0, sa_pt=6.0, page_break_before=first_para_of_page,
+                                 line_rule="atLeast")
                     first_para_of_page = False
                     add_run(p, child.text_content().strip(), 16.5, pal["accent"], bold=True)
                 elif "sharh-p" in cls:
@@ -861,10 +997,11 @@ def build_docx(edition: str, mode: str = "verbatim"):
                     render_inline_html_runs(p, child, 11.0, pal, is_matn=False)
                 elif "stars-row" in cls:
                     p = doc.add_paragraph()
-                    set_para_rtl(p, align=WD_ALIGN_PARAGRAPH.CENTER, line_pt=12.0,
-                                 sb_pt=2.0, sa_pt=1.0, page_break_before=first_para_of_page)
+                    set_para_rtl(p, align=WD_ALIGN_PARAGRAPH.CENTER, line_pt=10.0,
+                                 sb_pt=2.5, sa_pt=2.0, page_break_before=first_para_of_page,
+                                 line_rule="atLeast")
                     first_para_of_page = False
-                    add_run(p, "✽      ✽      ✽", 9.5, pal["accent"])
+                    p.add_run().add_picture(tailpiece_img, width=Mm(54))
                 else:
                     continue
 
@@ -904,24 +1041,36 @@ def build_docx(edition: str, mode: str = "verbatim"):
             set_para_rtl(p_anc, line_pt=1.0, sb_pt=0, sa_pt=0, page_break_before=first_para_of_page, mark_size_pt=2.0)
             attach_page_bookmarks(p_anc)
 
-    # ==================== SECTION 3: AYAH INDEX (pg-360..364) ====================
+    # ==================== SECTION 3: AYAH INDEX ====================
     if ayah_start_pg:
         sec3 = doc.add_section(WD_SECTION.NEW_PAGE)
         shrink_section_break_para(sec2)
-        configure_page_size(sec3, top_mm=21.2, bottom_mm=11.5, left_mm=18.5, right_mm=18.5, hdr_mm=13.0, ftr_mm=8.0)
+        configure_page_size(sec3, top_mm=21.2, bottom_mm=11.5, left_mm=18.5, right_mm=18.5, hdr_mm=10.5, ftr_mm=8.0)
         set_section_page_start(sec3, ayah_start_pg)
-        configure_running_header(sec3.header, "فَهْرَسُ الآيَاتِ الْقُرْآنِيَّةِ", "left", ayah_start_pg, pal)
-        configure_running_header(sec3.even_page_header, "فَهْرَسُ الآيَاتِ الْقُرْآنِيَّةِ", "right", ayah_start_pg, pal)
+        configure_running_header(sec3.header, "فَهْرَسُ الآيَاتِ الْقُرْآنِيَّةِ", "left", ayah_start_pg, pal, wing_img, use_styleref=False)
+        configure_running_header(sec3.even_page_header, "تَيْسِيرُ الانْتِفَاعِ بِشَرْحِ مُخْتَصَرِ أَبِي شُجَاعٍ", "right", ayah_start_pg, pal, wing_img, use_styleref=False)
 
         for pg in pages[ayah_start_pg - 1:ayah_end_pg]:
             pnum = int(pg.get("id").replace("pg-", ""))
             first_of_ay = (pnum > ayah_start_pg)
+            bf_ay = pg.xpath('.//*[contains(@class,"body-frame")]')[0]
+            has_ban = bool(bf_ay.xpath('./div[contains(@class,"chapter-banner")]'))
+            if has_ban:
+                p_ban = doc.add_paragraph()
+                set_para_rtl(p_ban, align=WD_ALIGN_PARAGRAPH.CENTER, line_pt=14.0,
+                             sb_pt=0, sa_pt=0, page_break_before=first_of_ay,
+                             line_rule="atLeast", keep_with_next=True)
+                bm.add_bookmark(p_ban, f"pg-{pnum}")
+                p_ban.add_run().add_picture(banner_img, width=Mm(116))
+                first_of_ay = False
+
             title_el = pg.xpath('.//*[contains(@class,"toc-page-title")]')[0]
             p_t = doc.add_paragraph()
             t_sz = 13.0 if "تَابِعُ" in title_el.text_content() else 16.5
-            set_para_rtl(p_t, align=WD_ALIGN_PARAGRAPH.CENTER, line_pt=t_sz * 1.45,
-                         sb_pt=1.0, sa_pt=4.0, page_break_before=first_of_ay)
-            bm.add_bookmark(p_t, f"pg-{pnum}")
+            set_para_rtl(p_t, align=WD_ALIGN_PARAGRAPH.CENTER, line_pt=max(24.0, t_sz * 1.65),
+                         sb_pt=(0 if has_ban else 3.0), sa_pt=4.0, page_break_before=first_of_ay, line_rule="atLeast")
+            if not has_ban:
+                bm.add_bookmark(p_t, f"pg-{pnum}")
             add_run(p_t, title_el.text_content().strip(), t_sz, pal["accent"], bold=True)
 
             rows_el = pg.xpath('.//*[@id="ayah-list-box"]/div[contains(@class,"ayah-idx-row")]')
@@ -943,7 +1092,7 @@ def build_docx(edition: str, mode: str = "verbatim"):
                 add_run(cp, txt, 10.0, pal["accent"], bold=True)
 
             for idx, r_el in enumerate(rows_el, start=1):
-                ay_txt = r_el.xpath('./*[contains(@class,"ayah-idx-text")]')[0].text_content().strip()
+                ay_el = r_el.xpath('./*[contains(@class,"ayah-idx-text")]')[0]
                 a_links = r_el.xpath('./*[contains(@class,"ayah-idx-pages")]/a')
                 trow = tbl.rows[idx]
 
@@ -952,8 +1101,17 @@ def build_docx(edition: str, mode: str = "verbatim"):
                 set_cell_margins(c0, top_dxa=35, bottom_dxa=35, left_dxa=60)
                 set_cell_borders(c0, bottom=("single", 2, "CCCCCC"))
                 cp0 = c0.paragraphs[0]
-                set_para_rtl(cp0, align=WD_ALIGN_PARAGRAPH.RIGHT, line_pt=14.8, sb_pt=0, sa_pt=0)
-                add_run(cp0, ay_txt, 9.5, pal["ink"], font_name="Amiri Quran")
+                set_para_rtl(cp0, align=WD_ALIGN_PARAGRAPH.RIGHT, line_pt=14.8, sb_pt=0, sa_pt=0, line_rule="atLeast")
+                if ay_el.text:
+                    add_run(cp0, ay_el.text.rstrip(), 9.5, pal["ink"], font_name="Amiri Quran")
+                for sub in ay_el:
+                    sub_cls = (sub.get("class") or "").split()
+                    if "ayah-ref" in sub_cls:
+                        add_run(cp0, " " + sub.text_content().strip(), 7.8, pal["subtle_ink"], font_name="Amiri")
+                    else:
+                        add_run(cp0, sub.text_content(), 9.5, pal["ink"], font_name="Amiri Quran")
+                    if sub.tail:
+                        add_run(cp0, sub.tail, 9.5, pal["ink"], font_name="Amiri Quran")
 
                 c1 = trow.cells[1]
                 set_cell_width(c1, w_l)
@@ -967,23 +1125,35 @@ def build_docx(edition: str, mode: str = "verbatim"):
                     anc = (a.get("href") or "#")[1:]
                     add_hyperlink_run(cp1, anc, a.text_content().strip(), 9.5, pal["accent"], bold=True)
 
-    # ==================== SECTION 4: GENERAL TOC (pg-365+) ====================
+    # ==================== SECTION 4: GENERAL TOC ====================
     if toc_start_pg:
         sec4 = doc.add_section(WD_SECTION.NEW_PAGE)
         shrink_section_break_para(sec3 if ayah_start_pg else sec2)
-        configure_page_size(sec4, top_mm=21.2, bottom_mm=11.5, left_mm=18.5, right_mm=18.5, hdr_mm=13.0, ftr_mm=8.0)
+        configure_page_size(sec4, top_mm=21.2, bottom_mm=11.5, left_mm=18.5, right_mm=18.5, hdr_mm=10.5, ftr_mm=8.0)
         set_section_page_start(sec4, toc_start_pg)
-        configure_running_header(sec4.header, "اَلْفَهْرَسُ الْعَامُّ", "left", toc_start_pg, pal)
-        configure_running_header(sec4.even_page_header, "اَلْفَهْرَسُ الْعَامُّ", "right", toc_start_pg, pal)
+        configure_running_header(sec4.header, "اَلْفَهْرَسُ الْعَامُّ", "left", toc_start_pg, pal, wing_img, use_styleref=False)
+        configure_running_header(sec4.even_page_header, "تَيْسِيرُ الانْتِفَاعِ بِشَرْحِ مُخْتَصَرِ أَبِي شُجَاعٍ", "right", toc_start_pg, pal, wing_img, use_styleref=False)
 
         for pg in pages[toc_start_pg - 1:]:
             pnum = int(pg.get("id").replace("pg-", ""))
             first_of_toc = (pnum > toc_start_pg)
+            bf_toc = pg.xpath('.//*[contains(@class,"body-frame")]')[0]
+            has_ban = bool(bf_toc.xpath('./div[contains(@class,"chapter-banner")]'))
+            if has_ban:
+                p_ban = doc.add_paragraph()
+                set_para_rtl(p_ban, align=WD_ALIGN_PARAGRAPH.CENTER, line_pt=14.0,
+                             sb_pt=0, sa_pt=0, page_break_before=first_of_toc,
+                             line_rule="atLeast", keep_with_next=True)
+                bm.add_bookmark(p_ban, f"pg-{pnum}")
+                p_ban.add_run().add_picture(banner_img, width=Mm(116))
+                first_of_toc = False
+
             title_el = pg.xpath('.//*[contains(@class,"toc-page-title")]')[0]
             p_t = doc.add_paragraph()
-            set_para_rtl(p_t, align=WD_ALIGN_PARAGRAPH.CENTER, line_pt=24.0,
-                         sb_pt=1.0, sa_pt=6.0, page_break_before=first_of_toc)
-            bm.add_bookmark(p_t, f"pg-{pnum}")
+            set_para_rtl(p_t, align=WD_ALIGN_PARAGRAPH.CENTER, line_pt=26.0,
+                         sb_pt=(0 if has_ban else 3.0), sa_pt=5.0, page_break_before=first_of_toc, line_rule="atLeast")
+            if not has_ban:
+                bm.add_bookmark(p_t, f"pg-{pnum}")
             add_run(p_t, title_el.text_content().strip(), 16.5, pal["accent"], bold=True)
 
             col_r = pg.xpath('.//*[contains(@class,"toc-col-right")]')[0]
@@ -1046,7 +1216,6 @@ def build_docx(edition: str, mode: str = "verbatim"):
             fill_toc_col(tbl.rows[0].cells[0], col_r, has_left_divider=True)
             fill_toc_col(tbl.rows[0].cells[1], col_l, has_left_divider=False)
 
-    # Ensure every section-break-holding paragraph in the document is minimal (1pt tall)
     for pPr in doc._body._body.xpath(".//w:p/w:pPr[w:sectPr]"):
         configure_ppr_rtl(
             pPr, align_val="right", line_pt=1.0, sb_tw=0, sa_tw=0,

@@ -21,13 +21,6 @@ os.environ.setdefault("ANTIGRAVITY_APP_DATA_DIR", "/home/antigravity/.local/gdoc
 
 REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DATA_PATH = os.path.join(REPO_ROOT, "book_engine", "book_data.json")
-if not os.path.exists("/home/antigravity/book_engine/book_data.json"):
-    DATA_PATH = os.path.join(REPO_ROOT, "book_engine", "book_data.json")
-else:
-    # Prefer freshly generated workspace book_data.json if newer
-    ws_data = "/home/antigravity/book_engine/book_data.json"
-    if os.path.getmtime(ws_data) >= os.path.getmtime(DATA_PATH):
-        DATA_PATH = ws_data
 
 with open(DATA_PATH, encoding="utf-8") as f:
     DATA = json.load(f)
@@ -38,20 +31,29 @@ DOC_FULL = "1JWeLsDtlU76TSQt-uac_vmXxDf1RCLLogj3tjZsYxUE"
 
 
 def html_para_to_runs(p_html: str):
-    pattern = re.compile(r'(<strong>.*?</strong>|<span class="ayah">.*?</span>)', flags=re.S)
+    pattern = re.compile(r'(<strong>.*?</strong>|<span class="ayah(?:-ref)?">.*?</span>)', flags=re.S)
     parts = pattern.split(p_html)
     runs = []
     for part in parts:
         if not part:
             continue
         is_bold = False
+        color = "#111111"
+        font_sz = 11.5
         txt = part
         if part.startswith("<strong>") and part.endswith("</strong>"):
             is_bold = True
+            color = "#9b111e"
             txt = part[len("<strong>"):-len("</strong>")]
         elif part.startswith('<span class="ayah">') and part.endswith("</span>"):
             is_bold = True
+            color = "#111111"
             txt = part[len('<span class="ayah">'):-len("</span>")]
+        elif part.startswith('<span class="ayah-ref">') and part.endswith("</span>"):
+            is_bold = False
+            color = "#5F6368"
+            font_sz = 8.8
+            txt = part[len('<span class="ayah-ref">'):-len("</span>")]
         txt = re.sub(r"<[^>]+>", "", txt)
         txt = (
             txt.replace("&quot;", '"')
@@ -65,8 +67,8 @@ def html_para_to_runs(p_html: str):
                 "bold": is_bold,
                 "italic": False,
                 "font_family": "Amiri",
-                "font_size": 11.5,
-                "text_color": "#111111",
+                "font_size": font_sz,
+                "text_color": color,
             })
     if not runs:
         runs.append({

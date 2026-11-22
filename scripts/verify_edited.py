@@ -1,63 +1,30 @@
 #!/usr/bin/env python3
-"""Validate edited lessons against clean_lessons structure, Quranic ayahs, colloquialisms, and fidelity."""
+"""
+Validate edited Abu Shuja lessons (L01-L25) under the NEW verbatim-respecting editorial rules:
+  - Identical 167/167 unit count, headings, TOC metadata, and Matn
+  - Exact Rasm Uthmani ayahs + [السورة: الآية] matching clean_lessons
+  - L01 intro and L25 closing preserved; L02-L25 video openings and L01-L24 video closings removed
+  - Technical Zoom/audio interruptions removed
+  - >= 90% word retention (never summarize, paraphrase, or substitute Shaykh's words)
+  - Zero Latin chars, Western digits, or forbidden editorial terms.
+"""
 import os
 import re
 import sys
 
 _REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
-COLLOQUIAL_TOKENS = [
-    r'(?<!\w)إيه(?!\w)',
-    r'(?<!\w)كده(?!\w)',
-    r'(?<!\w)عشان(?!\w)',
-    r'(?<!\w)علشان(?!\w)',
-    r'(?<!\w)بتاع\w*',
-    r'(?<!\w)بتوع(?!\w)',
-    r'(?<!\w)برضه(?!\w)',
-    r'(?<!\w)برضو(?!\w)',
-    r'(?<!\w)أهو(?!\w)',
-    r'(?<!\w)لسه(?!\w)',
-    r'(?<!\w)شوية(?!\w)',
-    r'(?<!\w)خلينا(?!\w)',
-    r'(?<!\w)آدي(?!\w)',
-    r'(?<!\w)دول(?!\w)',
-    r'(?<!\w)ده(?!\w)',
-    r'(?<!\w)دي(?!\w)',
-    r'(?<!\w)مش(?!\w)',
-    r'(?<!\w)مفيش(?!\w)',
-    r'(?<!\w)ما فيش(?!\w)',
-    r'(?<!\w)اللي(?!\w)',
-    r'(?<!\w)المية(?!\w)',
-    r'(?<!\w)مية(?!\w)',
-    r'(?<!\w)كتير(?!\w)',
-    r'(?<!\w)ما ينفعش(?!\w)',
-    r'(?<!\w)ينفعش(?!\w)',
-    r'(?<!\w)ما بتفرقش(?!\w)',
-    r'(?<!\w)بتفرقش(?!\w)',
-    r'(?<!\w)هقول\w*',
-    r'(?<!\w)هنقول\w*',
-    r'(?<!\w)هعمل\w*',
-    r'(?<!\w)حاجات(?!\w)',
-    r'(?<!\w)بص(?!\w)',
-    r'(?<!\w)شوف(?!\w)',
-    r'(?<!\w)خالص(?!\w)',
-    r'(?<!\w)طب(?!\w)',
-    r'(?<!\w)زي(?!\w)',
-    r'(?:^|\.\s+)طيب[،,]',
-    r'الصوت انقطع',
-    r'شيخ مصطفى',
-    r'أستاذ نور',
-    r'أستاذة سمية',
-    r'مرحباً بكم أيها الإخوة',
-    r'اللقاء القادم',
-    r'المرة القادمة',
-    r'الدرس القادم',
-    r'هستأذنكم',
-    r'سبحانك اللهم ربنا وبحمدك',
-    r'نكتفي بهذا',
-]
-COLLOQUIAL_RX = re.compile('|'.join(COLLOQUIAL_TOKENS))
+VIDEO_OPENING_RX = re.compile(
+    r'أعوذ بالله السميع العليم|فمرحب[اً]? بكم أيها (?:الإخوة|الأحبة)|حتى نلقاهم\.?\s*أما بعد'
+)
+VIDEO_CLOSING_RX = re.compile(
+    r'في لقائنا القادم|المرة القادمة|في الدرس المقبل|نبدأ به بمشيئة الله|سبحانك اللهم ربنا وبحمدك|وصلى الله وسلم وزاد وبارك على|وصلِّ اللهم وسلم وزد وبارك على'
+)
+ZOOM_RX = re.compile(
+    r'هل تسمعونني|كيف الصوت شيخ|الصوت انقطع|أنا فتحت الصوت|أستاذ نور|أستاذة سمية'
+)
 LATIN_RX = re.compile(r'[A-Za-z]')
+WESTERN_DIGIT_RX = re.compile(r'(?<![A-Za-z0-9_])[0-9]+')
 
 
 def parse_units(path):
@@ -86,38 +53,49 @@ def check_lesson(lnum):
 
     cu = parse_units(c_path)
     eu = parse_units(e_path)
-    cu_cmp = cu[:7] if lnum == 1 else cu
 
-    if len(cu_cmp) != len(eu):
-        return False, f"L{lnum:02d}: unit count mismatch {len(eu)} != {len(cu_cmp)}"
+    if len(cu) != len(eu):
+        return False, f"L{lnum:02d}: unit count mismatch {len(eu)} != {len(cu)}"
 
     errors = []
     tot_c_words = 0
     tot_e_words = 0
-    for idx, ((cm, cs), (em, es)) in enumerate(zip(cu_cmp, eu), 1):
+    for idx, ((cm, cs), (em, es)) in enumerate(zip(cu, eu), 1):
         for k in ['TOC_BOOK', 'TOC_FASL', 'HEADING', 'MATN', 'FASL_END']:
             if cm[k] != em[k]:
                 errors.append(f"U{idx:02d} {k} mismatch")
         if not es:
             errors.append(f"U{idx:02d} empty SHARH")
-        c_ayahs = re.findall(r'﴿[^﴾]+﴾', cs)
-        e_ayahs = re.findall(r'﴿[^﴾]+﴾', es)
-        if c_ayahs != e_ayahs:
-            errors.append(f"U{idx:02d} Ayah mismatch: clean={c_ayahs} vs edited={e_ayahs}")
-        hits = COLLOQUIAL_RX.findall(es)
-        if hits:
-            errors.append(f"U{idx:02d} remaining colloquial/meta tokens: {hits[:8]}")
-        if LATIN_RX.search(es):
-            errors.append(f"U{idx:02d} Latin chars found")
+        c_ay = re.findall(r'﴿[^﴾]+﴾\s*\[[^\]]+\]', cs)
+        e_ay = re.findall(r'﴿[^﴾]+﴾\s*\[[^\]]+\]', es)
+        if set(c_ay) != set(e_ay):
+            errors.append(f"U{idx:02d} Ayah/ref mismatch: missing={set(c_ay)-set(e_ay)} extra={set(e_ay)-set(c_ay)}")
+        if ZOOM_RX.search(es):
+            errors.append(f"U{idx:02d} remaining Zoom chatter: {ZOOM_RX.findall(es)}")
+        if LATIN_RX.search(es) or WESTERN_DIGIT_RX.search(es):
+            errors.append(f"U{idx:02d} Latin or Western digits found")
         for forb in ['الدكتور', 'د. أحمد', 'دار ابن حزم']:
             if forb in es:
                 errors.append(f"U{idx:02d} forbidden term: {forb}")
         tot_c_words += len(cs.split())
         tot_e_words += len(es.split())
 
+    u1_sharh = eu[0][1]
+    if lnum != 1 and VIDEO_OPENING_RX.search(u1_sharh[:600]):
+        errors.append(f"U01 leftover video intro: {VIDEO_OPENING_RX.findall(u1_sharh[:600])}")
+    if lnum == 1 and 'السلام عليكم' not in u1_sharh[:120]:
+        errors.append("L01 opening greeting accidentally removed")
+
+    ul_sharh = eu[-1][1]
+    if lnum != 25 and VIDEO_CLOSING_RX.search(ul_sharh[-180:]):
+        errors.append(f"U{len(eu):02d} leftover video closing: {VIDEO_CLOSING_RX.findall(ul_sharh[-180:])}")
+    if lnum == 25 and 'سبحانك اللهم ربنا وبحمدك' not in ul_sharh[-200:]:
+        errors.append("L25 closing prayer accidentally removed")
+
     ratio = tot_e_words / max(1, tot_c_words)
-    if ratio < 0.65:
-        errors.append(f"Word retention too low ({ratio:.2%}: {tot_e_words}/{tot_c_words}) - possible over-summarization")
+    min_ratio = 0.88 if lnum == 1 else 0.90
+    if ratio < min_ratio:
+        errors.append(f"Word retention too low ({ratio:.2%}: {tot_e_words}/{tot_c_words}) - possible unwanted deletion")
     if errors:
         return False, f"L{lnum:02d} FAIL ({tot_e_words}/{tot_c_words}, {ratio:.1%}): " + " | ".join(errors)
     return True, f"L{lnum:02d} PASS ({len(eu)} units, {tot_e_words}/{tot_c_words} words = {ratio:.1%})"

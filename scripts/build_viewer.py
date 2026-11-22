@@ -1,16 +1,17 @@
 #!/usr/bin/env python3
 """
-Builds the interactive Book Viewer HTML artifact
-(`matn_abi_shuja_transcripts.html`) directly from:
-  - `/home/antigravity/book_engine/full_book.html` (paginated pages, incl. Cover & Colophon)
-  - `/home/antigravity/book_engine/cover_front.png` (embedded as crisp JPEG data URI)
-  - `/home/antigravity/book_engine/book_data.json` (25 lessons & 167 units)
-  - `/home/antigravity/تفريغ_كامل_مجرد_كما_ذكر/*.txt` (raw verbatim transcripts)
+Builds the interactive Book Viewer HTML artifact for:
+«تَيْسِيرُ الانْتِفَاعِ بِشَرْحِ مُخْتَصَرِ أَبِي شُجَاعٍ»
+Directly from:
+  - `full_book.html` / `full_book_edited.html`
+  - `cover_front.png`
+  - `book_data.json` / `book_data_edited.json`
+  - Raw transcripts in `تفريغ_كامل_مجرد_كما_ذكر/`
 
-Supports 3 reading themes cleanly:
-  1. ورق قديم (`sepia`)
+Supports 3 reading themes:
+  1. نسخة لونين — أحمر وأسود (`two-color`)
   2. أبيض كلاسيكي (`white`)
-  3. نسخة لونين — أحمر وأسود (`two-color`)
+  3. ورق قديم (`sepia`)
 """
 import argparse
 import base64
@@ -26,30 +27,35 @@ _PARSER.add_argument("--mode", choices=("verbatim", "edited"), default="verbatim
 _ARGS, _ = _PARSER.parse_known_args()
 IS_EDITED = (_ARGS.mode == "edited")
 
-REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-BOOK_HTML_PATH = os.path.join(REPO_ROOT, "book_engine", "full_book_edited.html" if IS_EDITED else "full_book.html")
-BOOK_DATA_PATH = os.path.join(REPO_ROOT, "book_engine", "book_data_edited.json" if IS_EDITED else "book_data.json")
-COVER_PATH = os.path.join(REPO_ROOT, "book_engine", "cover_front.png")
-RAW_TXT_DIR = os.path.join(REPO_ROOT, "تفريغ_كامل_مجرد_كما_ذكر")
-OUT_HTML = None if IS_EDITED else os.path.join(REPO_ROOT, "index.html")
-OUT_VIEWER_COPY = os.path.join(REPO_ROOT, "viewer", "matn_abi_shuja_edited.html" if IS_EDITED else "matn_abi_shuja_transcripts.html")
+_REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+_ENG = os.path.join(_REPO, "book_engine")
+ARTIFACT_DIR = "/home/antigravity/.gemini/jetski/brain/v1/default/jetski_remote_agents_3p/bd48a090-cb19-4d3b-a48b-9325825df25c"
+
+BOOK_HTML_PATH = os.path.join(_ENG, "full_book_edited.html" if IS_EDITED else "full_book.html")
+BOOK_DATA_PATH = os.path.join(_ENG, "book_data_edited.json" if IS_EDITED else "book_data.json")
+COVER_PATH = os.path.join(_ENG, "cover_front.png")
+RAW_TXT_DIR = os.path.join(_REPO, "تفريغ_كامل_مجرد_كما_ذكر")
+OUT_HTML = os.path.join(ARTIFACT_DIR, "matn_abi_shuja_edited.html" if IS_EDITED else "matn_abi_shuja_transcripts.html")
+REPO_VIEWER_HTML = os.path.join(_REPO, "viewer", "matn_abi_shuja_edited.html" if IS_EDITED else "matn_abi_shuja_transcripts.html")
+ROOT_INDEX_HTML = None if IS_EDITED else os.path.join(_REPO, "index.html")
 
 EDIGITS = str.maketrans("0123456789", "٠١٢٣٤٥٦٧٨٩")
-
 
 def to_e(n) -> str:
     return str(n).translate(EDIGITS)
 
-
 def encode_cover_data_uri(img_path: str) -> str:
     im = Image.open(img_path).convert("RGB")
-    # Crisp 972x1404 (exact 162:234 aspect) JPEG for fast web loading & sharp gold leaf
     im_resized = im.resize((972, 1404), Image.LANCZOS)
     buf = io.BytesIO()
     im_resized.save(buf, format="JPEG", quality=88, optimize=True, progressive=True)
     b64 = base64.b64encode(buf.getvalue()).decode("ascii")
     return f"data:image/jpeg;base64,{b64}"
 
+def encode_png_data_uri(img_path: str) -> str:
+    with open(img_path, "rb") as pf:
+        b64 = base64.b64encode(pf.read()).decode("ascii")
+    return f"data:image/png;base64,{b64}"
 
 with open(BOOK_DATA_PATH, encoding="utf-8") as f:
     book_data = json.load(f)
@@ -61,7 +67,18 @@ m_root = re.search(r'<div id="book-root">(.*)</div>\s*</body>', full_book_html, 
 book_root_inner = m_root.group(1) if m_root else ""
 
 cover_uri = encode_cover_data_uri(COVER_PATH)
-book_root_inner = book_root_inner.replace(f"file://{COVER_PATH}", cover_uri).replace("file:///home/antigravity/book_engine/cover_front.png", cover_uri)
+basmalah_classic_uri = encode_png_data_uri(os.path.join(_ENG, "basmalah.png"))
+basmalah_plum_uri = encode_png_data_uri(os.path.join(_ENG, "basmalah_crimson.png"))
+banner_classic_uri = encode_png_data_uri(os.path.join(_ENG, "banner_classic.png"))
+banner_plum_uri = encode_png_data_uri(os.path.join(_ENG, "banner_crimson.png"))
+book_root_inner = (
+    book_root_inner
+    .replace(f"file://{COVER_PATH}", cover_uri)
+    .replace(f"file://{os.path.join(_ENG, 'basmalah.png')}", basmalah_plum_uri)
+    .replace(f"file://{os.path.join(_ENG, 'basmalah_crimson.png')}", basmalah_plum_uri)
+    .replace(f"file://{os.path.join(_ENG, 'banner_classic.png')}", banner_plum_uri)
+    .replace(f"file://{os.path.join(_ENG, 'banner_crimson.png')}", banner_plum_uri)
+)
 
 # Extract page map for exact page discovery
 pg_tokens = re.split(r'<div class="page[^"]*" id="pg-(\d+)"', book_root_inner)[1:]
@@ -113,11 +130,12 @@ for l in book_data["lessons"]:
 first_body_pg = lesson_start_pg.get(1, 5)
 front_end_pg = max(1, first_body_pg - 1)
 
+num_lessons = len(book_data["lessons"])
 lessons_meta = []
 for l in book_data["lessons"]:
     lnum = l["lesson_num"]
     start_p = lesson_start_pg.get(lnum, first_body_pg)
-    if lnum < 25:
+    if lnum < num_lessons:
         next_start = lesson_start_pg.get(lnum + 1, indexes_start_pg)
         end_p = next_start - 1 if next_start > start_p else start_p
     else:
@@ -140,7 +158,7 @@ viewer_html = f"""<!DOCTYPE html>
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>تَيْسِيرُ الانْتِفَاعِ بِشَرْحِ مُخْتَصَرِ أَبِي شُجَاعٍ — لِفَضِيلَةِ الشَّيْخِ أَحْمَدَ الْجَوْهَرِيِّ</title>
+<title>تَيْسِيرُ الانْتِفَاعِ بِشَرْحِ مُخْتَصَرِ أَبِي شُجَاعٍ — لِفَضِيلَةِ الشَّيْخِ أَحْمَدَ الْجَوْهَرِيِّ عَبْدِ الْجَوَادِ</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Amiri+Quran&family=Amiri:ital,wght@0,400;0,700;1,400&family=Cairo:wght@500;600;700;800&display=swap" rel="stylesheet">
@@ -210,7 +228,7 @@ viewer_html = f"""<!DOCTYPE html>
   --ayah-ink: #111111;
   --rule-ink: #9b111e;
   --fn-num-ink: #9b111e;
-  --subtle-ink: #333333;
+  --subtle-ink: #444444;
 }}
 
 * {{ box-sizing: border-box; }}
@@ -414,7 +432,7 @@ header.top-bar {{
 .page {{
   width: 162mm;
   height: 234mm;
-  padding: 13mm 19mm 12.5mm 19mm;
+  padding: 10.5mm 19mm 12.5mm 19mm;
   position: relative;
   overflow: hidden;
   display: flex;
@@ -456,7 +474,7 @@ header.top-bar {{
 .title-plate-main {{
   font-size: 24pt;
   font-weight: 700;
-  line-height: 1.85;
+  line-height: 1.9;
   margin-top: 3mm;
   color: var(--accent);
 }}
@@ -468,7 +486,7 @@ header.top-bar {{
 .title-plate-desc {{
   font-size: 17pt;
   font-weight: 700;
-  line-height: 1.85;
+  line-height: 1.9;
   margin-top: 8pt;
   color: var(--ink);
 }}
@@ -529,55 +547,111 @@ header.top-bar {{
   color: var(--accent);
   font-weight: 700;
 }}
-.basmalah-plate-text {{
-  font-family: 'AmiriQuranFont', 'Amiri Quran', 'AmiriBook', serif;
-  font-size: 26pt;
-  line-height: 2;
-  letter-spacing: 0.3pt;
-  color: var(--accent);
+.basmalah-plate-img {{
+  width: 72mm;
+  height: 67.36mm;
+  display: block;
+  margin: 0 auto;
 }}
+
 .running-header {{
   display: flex;
   justify-content: space-between;
-  align-items: baseline;
-  border-bottom: 0.65pt solid var(--rule-ink);
-  padding-bottom: 3pt;
-  margin-bottom: 6pt;
-  font-size: 10.5pt;
-  line-height: 1.3;
+  align-items: center;
+  border-bottom: 0.8pt solid var(--rule-ink);
+  padding: 2pt 0 3pt 0;
+  margin-bottom: 4pt;
+  font-size: 9.8pt;
+  line-height: 2.05;
   flex-shrink: 0;
+  overflow: visible;
 }}
-.running-header .rh-side {{ width: 18mm; font-weight: 700; color: var(--accent); }}
-.running-header .rh-right {{ text-align: right; }}
-.running-header .rh-left {{ text-align: left; }}
-.running-header .rh-center {{ flex: 1; text-align: center; font-weight: 400; color: var(--ink); }}
+.rh-title {{
+  color: var(--accent);
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: visible;
+  line-height: 2.05;
+  padding-top: 1.5pt;
+}}
+.rh-badge-wrap {{
+  display: inline-flex;
+  align-items: center;
+  gap: 2.5pt;
+  color: var(--accent);
+  direction: ltr;
+  flex-shrink: 0;
+  padding-top: 1.5pt;
+}}
+.rh-wing-svg {{
+  width: 18pt;
+  height: 9pt;
+  display: block;
+  color: var(--accent);
+}}
+.rh-pill {{
+  border: 0.85pt solid var(--accent);
+  border-radius: 999px;
+  padding: 0.5pt 7.5pt 1pt 7.5pt;
+  min-width: 10.5mm;
+  text-align: center;
+  font-weight: 700;
+  font-size: 9.5pt;
+  line-height: 1.3;
+  color: var(--accent);
+}}
+
 .body-frame {{
   flex: 1;
   display: flex;
   flex-direction: column;
-  overflow: hidden;
+  overflow: visible;
   min-height: 0;
+  padding-top: 4pt;
   padding-bottom: 0;
 }}
+.chapter-banner {{
+  width: 100%;
+  margin: 0;
+  text-align: center;
+  flex-shrink: 0;
+  position: relative;
+  z-index: 1;
+}}
+.chapter-banner-img {{
+  width: 124mm;
+  height: 22.32mm;
+  display: block;
+  margin: 0 auto;
+}}
+.chapter-banner + .preface-h,
+.chapter-banner + .matn-book-title,
+.chapter-banner + .toc-page-title {{
+  margin-top: -5mm;
+  position: relative;
+  z-index: 2;
+}}
 .matn-zone {{
-  font-size: 13.4pt;
-  line-height: 1.85;
+  font-size: 13.2pt;
+  line-height: 1.88;
   flex-shrink: 0;
   color: var(--matn-ink);
 }}
 .matn-book-title {{
   text-align: center;
-  font-size: 17.5pt;
+  font-size: 17pt;
   font-weight: 700;
-  line-height: 1.6;
+  line-height: 2.05;
+  padding-top: 3pt;
   margin: 0 0 4pt 0;
   color: var(--accent);
 }}
 .matn-bracket-title {{
   text-align: center;
-  font-size: 14.5pt;
+  font-size: 14pt;
   font-weight: 700;
-  line-height: 1.55;
+  line-height: 2.0;
+  padding-top: 3pt;
   margin: 0 0 4pt 0;
   color: var(--accent);
 }}
@@ -589,9 +663,9 @@ header.top-bar {{
 }}
 .matn-basmalah {{
   text-align: center;
-  font-family: 'AmiriQuranFont', 'Amiri Quran', 'AmiriBook', serif;
+  font-family: 'AmiriQuranFont', 'Amiri Quran', serif;
   font-size: 15.5pt;
-  line-height: 1.8;
+  line-height: 1.95;
   margin: 1pt 0 3pt 0;
   color: var(--matn-ink);
 }}
@@ -605,10 +679,11 @@ header.top-bar {{
 }}
 .preface-h {{
   text-align: center;
-  font-size: 17pt;
+  font-size: 16.5pt;
   font-weight: 700;
-  line-height: 1.65;
-  margin: 2pt 0 8pt 0;
+  line-height: 2.05;
+  padding-top: 3pt;
+  margin: 2pt 0 6pt 0;
   color: var(--accent);
 }}
 .fn-ref {{
@@ -624,11 +699,16 @@ header.top-bar {{
   justify-content: center;
   align-items: center;
   gap: 24pt;
-  margin: 4pt 0;
+  margin: 4.5pt 0 3.5pt 0;
   flex-shrink: 0;
   color: var(--accent);
 }}
-.star-svg {{ width: 8pt; height: 8pt; display: inline-block; color: var(--accent); }}
+.star-svg {{
+  width: 11pt;
+  height: 11pt;
+  display: block;
+  color: var(--accent);
+}}
 .split-rule {{
   border: none;
   border-top: 0.75pt solid var(--rule-ink);
@@ -639,7 +719,7 @@ header.top-bar {{
   font-size: 11.4pt;
   line-height: 1.78;
   flex: 1;
-  overflow: hidden;
+  overflow: visible;
   min-height: 0;
   color: var(--ink);
 }}
@@ -649,13 +729,29 @@ header.top-bar {{
   text-align-last: right;
   text-indent: 1.4em;
 }}
-.sharh-p.cont {{ text-indent: 0; }}
-.sharh-p strong, .sharh-zone strong {{ font-weight: 700; color: var(--strong-ink); }}
+.sharh-p.cont {{
+  text-indent: 0;
+}}
+.sharh-p strong, .sharh-zone strong {{
+  font-weight: 700;
+  color: var(--strong-ink);
+}}
 .ayah {{
-  font-family: 'AmiriQuranFont', 'Amiri Quran', 'AmiriBook', serif;
-  font-size: 11.5pt;
+  font-family: 'AmiriQuranFont', 'Amiri Quran', serif;
+  font-size: 11.4pt;
   line-height: 1.78;
   color: var(--ayah-ink);
+}}
+.matn-zone .ayah {{
+  font-size: 13.2pt;
+  color: var(--matn-ink);
+}}
+.ayah-ref {{
+  font-family: 'AmiriBook', 'Amiri', serif;
+  font-size: 8.5pt;
+  font-weight: 400;
+  color: var(--subtle-ink);
+  white-space: nowrap;
 }}
 .footnote-area {{
   margin-top: auto;
@@ -677,22 +773,23 @@ header.top-bar {{
   font-size: 8.4pt;
   margin-bottom: 1pt;
 }}
-.fn-gloss-row {{ margin-top: 0.5pt; }}
-.fn-gloss-num {{ font-weight: 700; color: var(--fn-num-ink); }}
-.fn-gloss-term {{ font-weight: 700; color: var(--ink); }}
-
-.toc-row a, .ayah-idx-pages a {{
-  color: var(--ink);
-  text-decoration: none;
+.fn-gloss-row {{
+  margin-top: 0.5pt;
 }}
-.toc-book-row a {{
-  color: var(--accent);
-  text-decoration: none;
+.fn-gloss-num {{
+  font-weight: 700;
+  color: var(--fn-num-ink);
+}}
+.fn-gloss-term {{
+  font-weight: 700;
+  color: var(--ink);
 }}
 .toc-page-title {{
   text-align: center;
-  font-size: 17pt;
+  font-size: 16.5pt;
   font-weight: 700;
+  line-height: 2.0;
+  padding-top: 3pt;
   margin: 2pt 0 7pt 0;
   color: var(--accent);
 }}
@@ -714,7 +811,9 @@ header.top-bar {{
   padding-left: 5.5mm;
   border-left: 0.6pt solid var(--rule-ink);
 }}
-.toc-col-left {{ padding-right: 5.5mm; }}
+.toc-col-left {{
+  padding-right: 5.5mm;
+}}
 .toc-book-row {{
   font-size: 9.8pt;
   font-weight: 700;
@@ -724,7 +823,14 @@ header.top-bar {{
   align-items: baseline;
   color: var(--accent);
 }}
-.toc-book-label {{ padding-right: 10pt; white-space: nowrap; }}
+.toc-book-row a {{
+  color: var(--accent);
+  text-decoration: none;
+}}
+.toc-book-label {{
+  padding-right: 10pt;
+  white-space: nowrap;
+}}
 .toc-row {{
   display: flex;
   align-items: baseline;
@@ -732,14 +838,26 @@ header.top-bar {{
   line-height: 1.55;
   margin: 0.5pt 0;
 }}
-.toc-row-title {{ white-space: normal; max-width: 85%; }}
+.toc-row a, .ayah-idx-pages a {{
+  color: var(--ink);
+  text-decoration: none;
+}}
+.toc-row-title {{
+  white-space: normal;
+  max-width: 85%;
+}}
 .toc-dots {{
   flex: 1;
   border-bottom: 1pt dotted #555;
   margin: 0 3pt 3pt 3pt;
   min-width: 8pt;
 }}
-.toc-pg {{ font-size: 9pt; white-space: nowrap; color: var(--accent); font-weight: 700; }}
+.toc-pg {{
+  font-size: 9pt;
+  white-space: nowrap;
+  color: var(--accent);
+  font-weight: 700;
+}}
 .toc-section-center {{
   text-align: center;
   font-size: 11pt;
@@ -767,7 +885,7 @@ header.top-bar {{
   line-height: 1.6;
 }}
 .ayah-idx-text {{
-  font-family: 'AmiriQuranFont', 'Amiri Quran', 'AmiriBook', serif;
+  font-family: 'AmiriQuranFont', 'Amiri Quran', serif;
   flex: 1;
   padding-left: 6pt;
   color: var(--ink);
@@ -781,7 +899,7 @@ header.top-bar {{
   font-weight: 700;
 }}
 
-/* Verbatim Raw Box */
+/* Verbatim Panel */
 .verbatim-panel {{
   width: 162mm;
   max-width: 96vw;
@@ -821,7 +939,7 @@ header.top-bar {{
 <aside id="sidebar">
   <div class="sb-head">
     <div class="sb-title">تَيْسِيرُ الانْتِفَاعِ بِشَرْحِ مُخْتَصَرِ أَبِي شُجَاعٍ{' — النُّسْخَةُ الْمُحَرَّرَةُ' if IS_EDITED else ''}</div>
-    <div class="sb-sub">لِفَضِيلَةِ الشَّيْخِ أَحْمَدَ الْجَوْهَرِيِّ ({to_e(TOTAL_PAGES)} صَفْحَةً)</div>
+    <div class="sb-sub">لِفَضِيلَةِ الشَّيْخِ أَحْمَدَ الْجَوْهَرِيِّ عَبْدِ الْجَوَادِ ({to_e(TOTAL_PAGES)} صَفْحَةً)</div>
   </div>
   <div class="sb-search">
     <input type="text" id="searchInput" placeholder="ابحث في الكتاب أو الفصول أو الآيات...">
@@ -860,7 +978,6 @@ const LESSONS = {meta_json};
 const TOTAL_PAGES = {TOTAL_PAGES};
 const FRONT_END_PG = {front_end_pg};
 const INDEXES_START_PG = {indexes_start_pg};
-const RAW_BTN_IDLE_LABEL = {'"📝 النص المتصل المحرر للباب"' if IS_EDITED else '"📝 النص الحرفي الخام للدرس"'};
 const EDIGITS = '٠١٢٣٤٥٦٧٨٩';
 const toE = (n) => String(n).replace(/[0-9]/g, d => EDIGITS[+d]);
 
@@ -948,14 +1065,15 @@ function selectLesson(idx) {{
     }}
   }} else {{
     vBtn.style.display = 'none';
+    document.getElementById('videoDrawer').style.display = 'none';
   }}
-  document.getElementById('verbatimPanel').textContent = l.verbatim || '';
   buildSidebar(document.getElementById('searchInput').value);
 }}
 
 function jumpToPage(val) {{
-  const pNum = Math.max(1, Math.min(TOTAL_PAGES, parseInt(val, 10) || 1));
-  const target = document.getElementById('pg-' + pNum);
+  const n = parseInt(val, 10);
+  if (isNaN(n) || n < 1 || n > TOTAL_PAGES) return;
+  const target = document.getElementById('pg-' + n);
   if (!target) return;
   if (target.style.display === 'none') {{
     allPageEls.forEach(p => p.style.display = 'flex');
@@ -965,27 +1083,27 @@ function jumpToPage(val) {{
 }}
 
 function toggleRawVerbatim() {{
-  if (activeLessonIdx < 0) {{
-    selectLesson(0);
-  }}
   isRawMode = !isRawMode;
   updateRawModeUI();
 }}
 
 function updateRawModeUI() {{
-  const vPanel = document.getElementById('verbatimPanel');
+  const panel = document.getElementById('verbatimPanel');
   const bookRoot = document.getElementById('book-root');
   const btn = document.getElementById('btnRawMode');
   if (isRawMode) {{
-    vPanel.style.display = 'block';
-    bookRoot.style.display = 'none';
     btn.classList.add('active');
-    btn.textContent = '📖 العودة لصفحات الكتاب المنسق';
+    bookRoot.style.display = 'none';
+    panel.style.display = 'block';
+    if (activeLessonIdx >= 0) {{
+      panel.textContent = LESSONS[activeLessonIdx].verbatim || 'لا يتوفر تفريغ خام لهذا اللقاء.';
+    }} else {{
+      panel.textContent = LESSONS.map(l => '=== ' + l.title + ' ===\\n\\n' + l.verbatim).join('\\n\\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\\n\\n');
+    }}
   }} else {{
-    vPanel.style.display = 'none';
-    bookRoot.style.display = 'flex';
     btn.classList.remove('active');
-    btn.textContent = RAW_BTN_IDLE_LABEL;
+    panel.style.display = 'none';
+    bookRoot.style.display = 'flex';
   }}
 }}
 
@@ -1005,6 +1123,10 @@ function toggleVideo() {{
   }}
 }}
 
+const BASMALAH_PLUM_URI = {json.dumps(basmalah_plum_uri)};
+const BASMALAH_CLASSIC_URI = {json.dumps(basmalah_classic_uri)};
+const BANNER_PLUM_URI = {json.dumps(banner_plum_uri)};
+const BANNER_CLASSIC_URI = {json.dumps(banner_classic_uri)};
 const themes = [
   {{ key: 'two-color', label: '🎨 نسخة لونين' }},
   {{ key: 'white',     label: '🎨 أبيض كلاسيكي' }},
@@ -1013,8 +1135,15 @@ const themes = [
 let tIdx = 0;
 function cyclePaperTheme() {{
   tIdx = (tIdx + 1) % themes.length;
-  document.body.setAttribute('data-theme', themes[tIdx].key);
+  const k = themes[tIdx].key;
+  document.body.setAttribute('data-theme', k);
   document.getElementById('btnTheme').textContent = themes[tIdx].label;
+  document.querySelectorAll('.basmalah-plate-img').forEach(im => {{
+    im.src = (k === 'two-color') ? BASMALAH_PLUM_URI : BASMALAH_CLASSIC_URI;
+  }});
+  document.querySelectorAll('.chapter-banner-img').forEach(im => {{
+    im.src = (k === 'two-color') ? BANNER_PLUM_URI : BANNER_CLASSIC_URI;
+  }});
 }}
 
 document.getElementById('book-root').addEventListener('click', (e) => {{
@@ -1047,16 +1176,18 @@ buildSidebar();
 </html>
 """
 
-written_targets = []
-for target in (OUT_HTML, OUT_VIEWER_COPY):
-    if not target:
-        continue
-    os.makedirs(os.path.dirname(target), exist_ok=True)
-    with open(target, "w", encoding="utf-8") as out_f:
-        out_f.write(viewer_html)
-    written_targets.append(target)
+os.makedirs(os.path.dirname(OUT_HTML), exist_ok=True)
+with open(OUT_HTML, "w", encoding="utf-8") as out_f:
+    out_f.write(viewer_html)
+
+os.makedirs(os.path.dirname(REPO_VIEWER_HTML), exist_ok=True)
+with open(REPO_VIEWER_HTML, "w", encoding="utf-8") as out_repo:
+    out_repo.write(viewer_html)
+if ROOT_INDEX_HTML:
+    with open(ROOT_INDEX_HTML, "w", encoding="utf-8") as out_root:
+        out_root.write(viewer_html)
 
 print(
     f"Successfully wrote interactive viewer ({len(viewer_html):,} bytes, {TOTAL_PAGES} pages, "
-    f"indexes={indexes_start_pg}..{TOTAL_PAGES}, front=1..{front_end_pg}) to {', '.join(written_targets)}"
+    f"indexes={indexes_start_pg}..{TOTAL_PAGES}, front=1..{front_end_pg}) to:\n  - {OUT_HTML}\n  - {REPO_VIEWER_HTML}"
 )
