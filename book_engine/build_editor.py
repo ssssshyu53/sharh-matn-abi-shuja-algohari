@@ -1564,7 +1564,7 @@ const BASE_VERBATIM_DATA = {verbatim_json};
     '<line x1="2" y1="9.5" x2="26" y2="9.5" stroke="currentColor" stroke-width="0.95"/>' +
     '</svg>';
 
-  const STORAGE_KEY_PREFIX = 'shuja_studio_v1_';
+  const STORAGE_KEY_PREFIX = 'shuja_studio_v2_';
   let currentMode = 'edited';
   let currentTheme = 'two-color';
   let currentZoom = 0.78;
