@@ -38,7 +38,8 @@ function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
 
 async function launchChrome() {
   const userDataDir = `/tmp/chrome_book_prof_${EDITION}_${Date.now()}`;
-  const proc = spawn('chromium', [
+  const chromeBin = process.env.CHROME_BIN || ['/usr/bin/google-chrome', '/usr/bin/chromium', '/usr/bin/chromium-browser'].find(p => fs.existsSync(p)) || 'chromium';
+  const proc = spawn(chromeBin, [
     '--headless',
     '--disable-gpu',
     '--no-sandbox',

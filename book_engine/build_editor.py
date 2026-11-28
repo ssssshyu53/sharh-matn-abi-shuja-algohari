@@ -29,7 +29,7 @@ from PIL import Image
 
 _ENG = os.path.dirname(os.path.abspath(__file__))
 _REPO = os.path.dirname(_ENG)
-ARTIFACT_DIR = "/home/antigravity/.gemini/jetski/brain/v1/default/jetski_remote_agents_3p/bd48a090-cb19-4d3b-a48b-9325825df25c"
+ARTIFACT_DIR = "/home/antigravity/.gemini/jetski/brain/v1/default/jetski_remote_agents_3p_devbox/29cb44ab-ce55-4ed1-b550-9526f2720bd4"
 
 FONT_DIR = "/home/antigravity/.local/share/fonts/amiri"
 OUT_REPO_HTML = os.path.join(_REPO, "viewer", "editor.html")
